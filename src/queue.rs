@@ -44,8 +44,11 @@ mod tests {
         q.enqueue(2);
         assert_eq!(q.peek(), Some(&0));
         assert_eq!(q.dequeue(), Some(0));
+        assert_eq!(q.peek(), Some(&1));
         assert_eq!(q.dequeue(), Some(1));
+        assert_eq!(q.peek(), Some(&2));
         assert_eq!(q.dequeue(), Some(2));
+        assert_eq!(q.peek(), None);
         assert_eq!(q.dequeue(), None);
     }
 

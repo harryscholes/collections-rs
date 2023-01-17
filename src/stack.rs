@@ -44,11 +44,14 @@ mod tests {
         assert_eq!(s.peek(), Some(&2));
         s.push(3);
         assert_eq!(s.peek(), Some(&3));
-
         assert_eq!(s.pop(), Some(3));
+        assert_eq!(s.peek(), Some(&2));
         assert_eq!(s.pop(), Some(2));
+        assert_eq!(s.peek(), Some(&1));
         assert_eq!(s.pop(), Some(1));
+        assert_eq!(s.peek(), Some(&0));
         assert_eq!(s.pop(), Some(0));
+        assert_eq!(s.peek(), None);
         assert_eq!(s.pop(), None);
     }
 
@@ -65,6 +68,7 @@ mod tests {
         }
 
         for i in max..=min {
+            assert_eq!(s.peek(), Some(&i));
             assert_eq!(s.pop(), Some(i))
         }
     }
