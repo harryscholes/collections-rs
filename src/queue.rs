@@ -1,15 +1,16 @@
 use crate::circular_buffer::CircularBuffer;
 
+/// Space complexity: O(n)
 #[derive(Clone, Debug)]
 pub struct Queue<T>(CircularBuffer<T>);
 
 impl<T> Queue<T> {
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn new() -> Queue<T> {
         Queue(CircularBuffer::new(1))
     }
 
-    /// Complexity: O(1) amortised
+    /// Time complexity: amortised O(1), O(n) worst case
     pub fn enqueue(&mut self, el: T) {
         if self.0.free() == 0 {
             self.0.grow(self.0.len())
@@ -17,12 +18,12 @@ impl<T> Queue<T> {
         self.0.push(el);
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn dequeue(&mut self) -> Option<T> {
         self.0.pop_front()
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn peek(&self) -> Option<&T> {
         self.0.first()
     }

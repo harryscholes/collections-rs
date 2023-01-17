@@ -1,3 +1,4 @@
+/// Space complexity: O(n)
 #[derive(Clone, Debug)]
 pub struct CircularBuffer<T> {
     buf: Vec<Option<T>>,
@@ -6,12 +7,10 @@ pub struct CircularBuffer<T> {
 }
 
 impl<T> CircularBuffer<T> {
-    /// Complexity: O(n)
     pub fn new(capacity: usize) -> CircularBuffer<T> {
         Self::from_vec((0..capacity).map(|_| None).collect())
     }
 
-    /// Complexity: O(n)
     fn from_vec(buf: Vec<Option<T>>) -> CircularBuffer<T> {
         CircularBuffer {
             start: 0,
@@ -20,7 +19,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn push(&mut self, el: T) {
         let old = self.buf[self.end].replace(el);
         self.end = self.increment(self.end);
@@ -29,7 +28,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn push_front(&mut self, el: T) {
         self.start = self.decrement(self.start);
         let old = self.buf[self.start].replace(el);
@@ -38,7 +37,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn pop(&mut self) -> Option<T> {
         if self.buf.is_empty() {
             None
@@ -52,7 +51,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
         if self.buf.is_empty() {
             None
@@ -65,7 +64,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn first(&self) -> Option<&T> {
         if self.buf.is_empty() {
             None
@@ -74,7 +73,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn last(&self) -> Option<&T> {
         if self.buf.is_empty() {
             None
@@ -83,12 +82,12 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.buf.len()
     }
 
-    /// Complexity: O(1)
+    /// Time complexity: O(1)
     pub fn free(&self) -> usize {
         if self.start == self.end {
             if self.first().is_none() {
@@ -106,7 +105,7 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Complexity: O(n)
+    /// Time complexity: O(n)
     pub fn grow(&mut self, n: usize) {
         if !self.buf.is_empty() {
             self.buf.rotate_left(self.start);
@@ -141,7 +140,6 @@ fn sub_mod(x: usize, y: usize, modulus: usize) -> usize {
 }
 
 impl<T> FromIterator<T> for CircularBuffer<T> {
-    /// Complexity: O(n)
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> CircularBuffer<T> {
         let buf = iter.into_iter().map(|el| Some(el)).collect();
         CircularBuffer::from_vec(buf)
