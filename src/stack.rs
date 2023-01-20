@@ -14,12 +14,12 @@ impl<T> Stack<T> {
         if self.0.free() == 0 {
             self.0.grow(self.0.len())
         }
-        self.0.push(el);
+        self.0.push_back(el);
     }
 
     /// Time complexity: O(1)
     pub fn pop(&mut self) -> Option<T> {
-        self.0.pop()
+        self.0.pop_back()
     }
 
     /// Time complexity: O(1)
