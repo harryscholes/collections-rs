@@ -13,7 +13,7 @@ impl<T> Dequeue<T> {
     /// Time complexity: amortised O(1), O(n) worst case
     pub fn push_back(&mut self, el: T) {
         if self.0.free() == 0 {
-            self.0.grow(self.0.len())
+            self.0.grow(self.0.capacity())
         }
         self.0.push_back(el);
     }
@@ -21,7 +21,7 @@ impl<T> Dequeue<T> {
     /// Time complexity: amortised O(1), O(n) worst case
     pub fn push_front(&mut self, el: T) {
         if self.0.free() == 0 {
-            self.0.grow(self.0.len())
+            self.0.grow(self.0.capacity())
         }
         self.0.push_front(el);
     }
@@ -44,6 +44,12 @@ impl<T> Dequeue<T> {
     /// Time complexity: O(1)
     pub fn peek_front(&self) -> Option<&T> {
         self.0.first()
+    }
+}
+
+impl<T> Default for Dequeue<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

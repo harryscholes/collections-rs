@@ -12,7 +12,7 @@ impl<T> Stack<T> {
     /// Time complexity: amortised O(1), O(n) worst case
     pub fn push(&mut self, el: T) {
         if self.0.free() == 0 {
-            self.0.grow(self.0.len())
+            self.0.grow(self.0.capacity())
         }
         self.0.push_back(el);
     }
@@ -25,6 +25,12 @@ impl<T> Stack<T> {
     /// Time complexity: O(1)
     pub fn peek(&self) -> Option<&T> {
         self.0.last()
+    }
+}
+
+impl<T> Default for Stack<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

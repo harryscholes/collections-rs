@@ -83,7 +83,7 @@ impl<T> CircularBuffer<T> {
     }
 
     /// Time complexity: O(1)
-    pub fn len(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.buf.len()
     }
 
@@ -594,9 +594,9 @@ mod tests {
         cb.push_back(0);
         assert_eq!(cb.buf, vec![Some(0)]);
         assert_eq!(cb.free(), 0);
-        cb.grow(cb.len());
+        cb.grow(cb.capacity());
         assert_eq!(cb.buf, vec![Some(0), None]);
-        assert_eq!(cb.len(), 2);
+        assert_eq!(cb.capacity(), 2);
         assert_eq!(cb.free(), 1);
     }
 }
