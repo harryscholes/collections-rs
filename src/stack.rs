@@ -34,6 +34,22 @@ impl<T> Default for Stack<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for Stack<T> {
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr)
+    }
+}
+
+impl<T> FromIterator<T> for Stack<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Stack<T> {
+        let mut s = Stack::new();
+        for el in iter {
+            s.push(el);
+        }
+        s
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
