@@ -35,6 +35,22 @@ impl<T> Default for Queue<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for Queue<T> {
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr)
+    }
+}
+
+impl<T> FromIterator<T> for Queue<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Queue<T> {
+        let mut q = Queue::new();
+        for el in iter {
+            q.enqueue(el);
+        }
+        q
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
