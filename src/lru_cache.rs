@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 use crate::linked_list::{LinkedList, Node};
 
+/// Space complexity: O(n)
 pub struct LRUCache<K, V> {
     list: LinkedList<Item<K, V>>,
     map: HashMap<K, Rc<RefCell<Node<Item<K, V>>>>>,
@@ -27,6 +28,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn insert(&mut self, key: K, value: V) {
         if self.list.len() == self.capacity {
             self.evict_least_recently_used();
@@ -36,6 +38,7 @@ where
         self.map.insert(key, node);
     }
 
+    /// Time complexity: O(1)
     fn evict_least_recently_used(&mut self) {
         if let Some(node) = self.list.last() {
             let key = node.borrow().element.key;
@@ -45,6 +48,7 @@ where
         self.list.pop_back().unwrap();
     }
 
+    /// Time complexity: O(1)
     pub fn get(&mut self, key: &K) -> Option<V> {
         let node = match self.map.get(key) {
             None => return None,
@@ -55,6 +59,7 @@ where
         Some(value)
     }
 
+    /// Time complexity: O(1)
     fn promote_most_recently_used(&mut self, node: Rc<RefCell<Node<Item<K, V>>>>) {
         self.list.unlink(node.clone());
         self.list.push_node_front(node.clone());

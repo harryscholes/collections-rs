@@ -16,6 +16,7 @@ impl<T> Node<T> {
     }
 }
 
+/// Space complexity: O(n)
 pub struct LinkedList<T> {
     head: Option<Rc<RefCell<Node<T>>>>,
     tail: Option<Rc<RefCell<Node<T>>>>,
@@ -34,6 +35,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn push_back(&mut self, elt: T) {
         let node = Rc::new(RefCell::new(Node::new(elt)));
         node.borrow_mut().next = None;
@@ -51,10 +53,12 @@ where
         self.len += 1;
     }
 
+    /// Time complexity: O(1)
     pub fn push_front(&mut self, elt: T) {
         self.push_front_node(elt);
     }
 
+    /// Time complexity: O(1)
     pub(crate) fn push_front_node(&mut self, elt: T) -> Rc<RefCell<Node<T>>> {
         let node = Rc::new(RefCell::new(Node::new(elt)));
         node.borrow_mut().prev = None;
@@ -73,6 +77,7 @@ where
         node
     }
 
+    /// Time complexity: O(1)
     pub(crate) fn push_node_front(&mut self, node: Rc<RefCell<Node<T>>>) {
         node.borrow_mut().prev = None;
         match &self.head {
@@ -89,6 +94,7 @@ where
         self.len += 1;
     }
 
+    /// Time complexity: O(1)
     pub fn pop_back(&mut self) -> Option<T> {
         match self.tail.clone() {
             None => return None,
@@ -108,6 +114,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
         match self.head.clone() {
             None => return None,
@@ -127,6 +134,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn unlink(&mut self, node: Rc<RefCell<Node<T>>>) {
         match node.borrow().prev.clone() {
             Some(prev) => prev.borrow_mut().next = node.borrow().next.clone(),
@@ -139,6 +147,7 @@ where
         self.len -= 1;
     }
 
+    /// Time complexity: O(1)
     pub fn first(&self) -> Option<Rc<RefCell<Node<T>>>> {
         match self.head.clone() {
             Some(node) => Some(node),
@@ -146,6 +155,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn last(&self) -> Option<Rc<RefCell<Node<T>>>> {
         match self.tail.clone() {
             Some(node) => Some(node),
@@ -153,6 +163,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.len
     }
