@@ -6,3 +6,5 @@ Rust data structures, methods and traits:
 - `Queue`
 - `Stack`
 - `Graph`
+- `LinkedList`
+- `LRUCache`
