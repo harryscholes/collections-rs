@@ -1,3 +1,5 @@
+// TODO impl Iterator
+
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
@@ -83,24 +85,8 @@ impl<T> LinkedList<T> {
         match self.tail.clone() {
             None => None,
             Some(node) => {
-                match node.borrow().prev.clone() {
-                    None => {
-                        self.head = None;
-                        self.tail = None;
-                    }
-                    Some(prev) => {
-                        self.tail = Some(prev.clone());
-                        prev.borrow_mut().next = None;
-                    }
-                }
-                let node = match Rc::try_unwrap(node) {
-                    Ok(node) => node.into_inner(),
-                    Err(_) => {
-                        panic!("Unwrapping `Rc` failed because more than one reference exists")
-                    }
-                };
-                self.len -= 1;
-                Some(node.element)
+                self.unlink(node.clone());
+                Some(self.try_unwrap(node))
             }
         }
     }
@@ -110,24 +96,8 @@ impl<T> LinkedList<T> {
         match self.head.clone() {
             None => None,
             Some(node) => {
-                match node.borrow().next.clone() {
-                    None => {
-                        self.head = None;
-                        self.tail = None;
-                    }
-                    Some(next) => {
-                        self.head = Some(next.clone());
-                        next.borrow_mut().prev = None;
-                    }
-                }
-                let node = match Rc::try_unwrap(node) {
-                    Ok(node) => node.into_inner(),
-                    Err(_) => {
-                        panic!("Unwrapping `Rc` failed because more than one reference exists")
-                    }
-                };
-                self.len -= 1;
-                Some(node.element)
+                self.unlink(node.clone());
+                Some(self.try_unwrap(node))
             }
         }
     }
@@ -164,6 +134,13 @@ impl<T> LinkedList<T> {
     /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    fn try_unwrap(&self, node: Rc<RefCell<Node<T>>>) -> T {
+        match Rc::try_unwrap(node) {
+            Ok(node) => node.into_inner().element,
+            Err(_) => panic!("Unwrapping `Rc` failed because more than one reference exists"),
+        }
     }
 }
 
