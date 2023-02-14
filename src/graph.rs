@@ -115,6 +115,12 @@ where
     }
 }
 
+impl<T> Default for Graph<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct NeighboursIterator<'a, T>(Option<std::collections::hash_set::Iter<'a, T>>);
 
 impl<'a, T> NeighboursIterator<'a, T>
@@ -122,12 +128,7 @@ where
     T: Eq + Hash,
 {
     pub fn new(graph: &'a Graph<T>, vertex: &T) -> Self {
-        NeighboursIterator {
-            0: match graph.edges.get(vertex) {
-                Some(neighbours) => Some(neighbours.iter()),
-                None => None,
-            },
-        }
+        NeighboursIterator(graph.edges.get(vertex).map(|neighbours| neighbours.iter()))
     }
 }
 
@@ -152,9 +153,7 @@ where
     T: Eq + Hash,
 {
     pub fn new(graph: &'a Graph<T>) -> Self {
-        VerticesIterator {
-            0: graph.edges.iter(),
-        }
+        VerticesIterator(graph.edges.iter())
     }
 }
 
@@ -243,7 +242,7 @@ where
                 if !self.graph.has_vertex(v) {
                     None
                 } else {
-                    for u in self.graph.neighbours(&v) {
+                    for u in self.graph.neighbours(v) {
                         if !self.visited.contains(&u) {
                             self.visited.insert(u);
                             self.queue.push_back(u);
@@ -288,7 +287,7 @@ where
                 if !self.graph.has_vertex(v) {
                     None
                 } else {
-                    for u in self.graph.neighbours(&v) {
+                    for u in self.graph.neighbours(v) {
                         if !self.visited.contains(&u) {
                             self.visited.insert(u);
                             self.stack.push(u);

@@ -86,7 +86,7 @@ impl<T> LinkedList<T> {
             None => None,
             Some(node) => {
                 self.unlink(node.clone());
-                Some(self.try_unwrap(node))
+                Some(self.unwrap(node))
             }
         }
     }
@@ -97,7 +97,7 @@ impl<T> LinkedList<T> {
             None => None,
             Some(node) => {
                 self.unlink(node.clone());
-                Some(self.try_unwrap(node))
+                Some(self.unwrap(node))
             }
         }
     }
@@ -117,18 +117,12 @@ impl<T> LinkedList<T> {
 
     /// Time complexity: O(1)
     pub fn first(&self) -> Option<Rc<RefCell<Node<T>>>> {
-        match self.head.clone() {
-            Some(node) => Some(node),
-            None => None,
-        }
+        self.head.clone()
     }
 
     /// Time complexity: O(1)
     pub fn last(&self) -> Option<Rc<RefCell<Node<T>>>> {
-        match self.tail.clone() {
-            Some(node) => Some(node),
-            None => None,
-        }
+        self.tail.clone()
     }
 
     /// Time complexity: O(1)
@@ -136,11 +130,21 @@ impl<T> LinkedList<T> {
         self.len
     }
 
-    fn try_unwrap(&self, node: Rc<RefCell<Node<T>>>) -> T {
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    fn unwrap(&self, node: Rc<RefCell<Node<T>>>) -> T {
         match Rc::try_unwrap(node) {
             Ok(node) => node.into_inner().element,
             Err(_) => panic!("Unwrapping `Rc` failed because more than one reference exists"),
         }
+    }
+}
+
+impl<T> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

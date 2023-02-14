@@ -2,10 +2,12 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Weak};
 
 use crate::linked_list::{LinkedList, Node};
 
+type NodeMap<K, V> = HashMap<K, Weak<RefCell<Node<Item<K, V>>>>>;
+
 /// Space complexity: O(n)
 pub struct LRUCache<K, V> {
     list: LinkedList<Item<K, V>>,
-    map: HashMap<K, Weak<RefCell<Node<Item<K, V>>>>>,
+    map: NodeMap<K, V>,
     capacity: usize,
 }
 
