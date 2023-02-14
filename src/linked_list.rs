@@ -1,4 +1,7 @@
-use std::{cell::RefCell, hash::Hash, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 pub struct Node<T> {
     pub element: T,
@@ -23,10 +26,7 @@ pub struct LinkedList<T> {
     len: usize,
 }
 
-impl<T> LinkedList<T>
-where
-    T: Eq + Hash,
-{
+impl<T> LinkedList<T> {
     pub fn new() -> Self {
         LinkedList {
             head: None,
@@ -36,7 +36,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn push_back(&mut self, elt: T) {
+    pub fn push_back(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
         let node = Rc::new(RefCell::new(Node::new(elt)));
         node.borrow_mut().next = None;
         match &self.tail {
@@ -51,34 +51,17 @@ where
         }
         self.tail = Some(node.clone());
         self.len += 1;
+        Rc::downgrade(&node)
     }
 
     /// Time complexity: O(1)
-    pub fn push_front(&mut self, elt: T) {
-        self.push_front_node(elt);
-    }
-
-    /// Time complexity: O(1)
-    pub(crate) fn push_front_node(&mut self, elt: T) -> Rc<RefCell<Node<T>>> {
+    pub fn push_front(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
         let node = Rc::new(RefCell::new(Node::new(elt)));
-        node.borrow_mut().prev = None;
-        match &self.head {
-            None => {
-                self.tail = Some(node.clone());
-                node.borrow_mut().next = None;
-            }
-            Some(head) => {
-                head.borrow_mut().prev = Some(node.clone());
-                node.borrow_mut().next = Some(head.clone());
-            }
-        }
-        self.head = Some(node.clone());
-        self.len += 1;
-        node
+        self.push_node_front(node)
     }
 
     /// Time complexity: O(1)
-    pub(crate) fn push_node_front(&mut self, node: Rc<RefCell<Node<T>>>) {
+    pub(crate) fn push_node_front(&mut self, node: Rc<RefCell<Node<T>>>) -> Weak<RefCell<Node<T>>> {
         node.borrow_mut().prev = None;
         match &self.head {
             None => {
@@ -92,24 +75,32 @@ where
         }
         self.head = Some(node.clone());
         self.len += 1;
+        Rc::downgrade(&node)
     }
 
     /// Time complexity: O(1)
     pub fn pop_back(&mut self) -> Option<T> {
         match self.tail.clone() {
-            None => return None,
+            None => None,
             Some(node) => {
-                self.tail = node.borrow_mut().prev.clone();
-                match self.tail.clone() {
-                    None => self.head = None,
-                    Some(tail) => tail.borrow_mut().next = None,
+                match node.borrow().prev.clone() {
+                    None => {
+                        self.head = None;
+                        self.tail = None;
+                    }
+                    Some(prev) => {
+                        self.tail = Some(prev.clone());
+                        prev.borrow_mut().next = None;
+                    }
                 }
-                let elt = match Rc::try_unwrap(node) {
-                    Ok(node) => node.into_inner().element,
-                    Err(_) => panic!("LinkedList::pop_back"),
+                let node = match Rc::try_unwrap(node) {
+                    Ok(node) => node.into_inner(),
+                    Err(_) => {
+                        panic!("Unwrapping `Rc` failed because more than one reference exists")
+                    }
                 };
                 self.len -= 1;
-                Some(elt)
+                Some(node.element)
             }
         }
     }
@@ -117,19 +108,26 @@ where
     /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
         match self.head.clone() {
-            None => return None,
+            None => None,
             Some(node) => {
-                self.head = node.borrow_mut().next.clone();
-                match self.head.clone() {
-                    None => self.tail = None,
-                    Some(head) => head.borrow_mut().prev = None,
+                match node.borrow().next.clone() {
+                    None => {
+                        self.head = None;
+                        self.tail = None;
+                    }
+                    Some(next) => {
+                        self.head = Some(next.clone());
+                        next.borrow_mut().prev = None;
+                    }
                 }
-                let elt = match Rc::try_unwrap(node) {
-                    Ok(node) => node.into_inner().element,
-                    Err(_) => panic!("LinkedList::pop_front"),
+                let node = match Rc::try_unwrap(node) {
+                    Ok(node) => node.into_inner(),
+                    Err(_) => {
+                        panic!("Unwrapping `Rc` failed because more than one reference exists")
+                    }
                 };
                 self.len -= 1;
-                Some(elt)
+                Some(node.element)
             }
         }
     }
@@ -255,13 +253,13 @@ mod tests {
     fn test_unlink() {
         let mut l = LinkedList::new();
         l.push_front(4);
-        let node_3 = l.push_front_node(3);
-        let node_2 = l.push_front_node(2);
+        let node_3 = l.push_front(3);
+        let node_2 = l.push_front(2);
         l.push_front(1);
         assert_eq!(l.head.as_ref().unwrap().borrow().element, 1);
         assert_eq!(l.tail.as_ref().unwrap().borrow().element, 4);
 
-        l.unlink(node_2);
+        l.unlink(node_2.upgrade().unwrap());
         assert_eq!(l.head.as_ref().unwrap().borrow().element, 1);
         assert_eq!(l.tail.as_ref().unwrap().borrow().element, 4);
         assert_eq!(
@@ -289,7 +287,7 @@ mod tests {
             3
         );
 
-        l.unlink(node_3);
+        l.unlink(node_3.upgrade().unwrap());
         assert_eq!(l.head.as_ref().unwrap().borrow().element, 1);
         assert_eq!(l.tail.as_ref().unwrap().borrow().element, 4);
         assert_eq!(
@@ -316,5 +314,17 @@ mod tests {
                 .element,
             1
         );
+    }
+
+    #[test]
+    fn test_node_weak_pointer() {
+        let mut l = LinkedList::new();
+        l.push_front(3);
+        let weak_node_2 = l.push_front(2);
+        l.push_front(1);
+
+        let node_2 = weak_node_2.upgrade().unwrap();
+        l.unlink(node_2);
+        assert!(weak_node_2.upgrade().is_none());
     }
 }
