@@ -236,6 +236,15 @@ where
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for LinkedList<T>
+where
+    T: Clone,
+{
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr.into_iter())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,6 +483,24 @@ mod tests {
     fn test_from_iter() {
         let iter = 1..=3;
         let mut l = LinkedList::from_iter(iter);
+        assert_eq!(l.pop_front(), Some(1));
+        assert_eq!(l.pop_front(), Some(2));
+        assert_eq!(l.pop_front(), Some(3));
+    }
+
+    #[test]
+    fn test_from_vec() {
+        let vec = vec![1, 2, 3];
+        let mut l = LinkedList::from_iter(vec.into_iter());
+        assert_eq!(l.pop_front(), Some(1));
+        assert_eq!(l.pop_front(), Some(2));
+        assert_eq!(l.pop_front(), Some(3));
+    }
+
+    #[test]
+    fn test_from_arr() {
+        let arr = [1, 2, 3];
+        let mut l = LinkedList::from(arr);
         assert_eq!(l.pop_front(), Some(1));
         assert_eq!(l.pop_front(), Some(2));
         assert_eq!(l.pop_front(), Some(3));
