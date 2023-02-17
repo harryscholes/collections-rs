@@ -11,6 +11,7 @@ pub struct LRUCache<K, V> {
     capacity: usize,
 }
 
+#[derive(Clone)]
 struct Item<K, V> {
     key: K,
     value: V,
@@ -36,12 +37,8 @@ where
                 self.map.remove(&item.key);
             }
         }
-        let item = Item {
-            key: key.clone(),
-            value,
-        };
-        let node = self.list.push_front(item);
-        self.map.insert(key, node);
+        let item = Item { key, value };
+        self.insert_item(item);
     }
 
     /// Time complexity: O(1)
@@ -50,13 +47,18 @@ where
             None => None,
             Some(node) => match node.upgrade() {
                 Some(node) => {
-                    self.list.unlink(node.clone());
-                    self.list.push_node_front(node.clone());
-                    Some(node.borrow().element.value.clone())
+                    let item = self.list.unlink(node);
+                    self.insert_item(item.clone());
+                    Some(item.value)
                 }
                 None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
             },
         }
+    }
+
+    fn insert_item(&mut self, item: Item<K, V>) {
+        let node = self.list.push_front(item.clone());
+        self.map.insert(item.key, node);
     }
 }
 
@@ -101,27 +103,27 @@ mod tests {
         c.insert(2, 'b');
         c.insert(3, 'c');
         // LinkedList: head-3-2-1-tail
-        assert_eq!(c.list.first().unwrap().borrow().element.key, 3);
-        assert_eq!(c.list.last().unwrap().borrow().element.key, 1);
+        assert_eq!(c.list.first().unwrap().key, 3);
+        assert_eq!(c.list.last().unwrap().key, 1);
 
         c.get(&1);
         // LinkedList: head-1-3-2-tail
-        assert_eq!(c.list.first().unwrap().borrow().element.key, 1);
-        assert_eq!(c.list.last().unwrap().borrow().element.key, 2);
+        assert_eq!(c.list.first().unwrap().key, 1);
+        assert_eq!(c.list.last().unwrap().key, 2);
 
         c.insert(4, 'd');
         // LinkedList: head-4-1-3-tail
-        assert_eq!(c.list.first().unwrap().borrow().element.key, 4);
-        assert_eq!(c.list.last().unwrap().borrow().element.key, 3);
+        assert_eq!(c.list.first().unwrap().key, 4);
+        assert_eq!(c.list.last().unwrap().key, 3);
 
         c.get(&3);
         // LinkedList: head-3-4-1-tail
-        assert_eq!(c.list.first().unwrap().borrow().element.key, 3);
-        assert_eq!(c.list.last().unwrap().borrow().element.key, 1);
+        assert_eq!(c.list.first().unwrap().key, 3);
+        assert_eq!(c.list.last().unwrap().key, 1);
 
         c.insert(5, 'e');
         // LinkedList: head-5-3-4-tail
-        assert_eq!(c.list.first().unwrap().borrow().element.key, 5);
-        assert_eq!(c.list.last().unwrap().borrow().element.key, 4);
+        assert_eq!(c.list.first().unwrap().key, 5);
+        assert_eq!(c.list.last().unwrap().key, 4);
     }
 }
