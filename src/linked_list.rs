@@ -400,6 +400,24 @@ mod tests {
     }
 
     #[test]
+    fn test_len() {
+        let mut l = LinkedList::new();
+        assert!(l.is_empty());
+
+        l.push_back(1);
+        assert_eq!(l.len(), 1);
+
+        l.push_front(2);
+        assert_eq!(l.len(), 2);
+
+        l.pop_back();
+        assert_eq!(l.len(), 1);
+
+        l.pop_front();
+        assert!(l.is_empty());
+    }
+
+    #[test]
     fn test_iter() {
         let mut l = LinkedList::new();
         l.push_back(1);
