@@ -114,16 +114,6 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn peek_front(&self) -> Option<Weak<RefCell<Node<T>>>> {
-        self.head.clone().map(|head| Rc::downgrade(&head))
-    }
-
-    /// Time complexity: O(1)
-    pub fn peek_back(&self) -> Option<Weak<RefCell<Node<T>>>> {
-        self.tail.clone().map(|tail| Rc::downgrade(&tail))
-    }
-
-    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.len
     }
@@ -397,42 +387,6 @@ mod tests {
         let node_2 = weak_node_2.upgrade().unwrap();
         let _another_node_2_ref = node_2.clone();
         l.unlink(node_2);
-    }
-
-    #[test]
-    fn test_peek_back() {
-        let mut l = LinkedList::new();
-        assert!(l.peek_back().is_none());
-
-        l.push_back(1);
-        assert_eq!(
-            l.peek_back().unwrap().upgrade().unwrap().borrow().element,
-            1
-        );
-
-        l.push_back(2);
-        assert_eq!(
-            l.peek_back().unwrap().upgrade().unwrap().borrow().element,
-            2
-        );
-    }
-
-    #[test]
-    fn test_peek_front() {
-        let mut l = LinkedList::new();
-        assert!(l.peek_front().is_none());
-
-        l.push_back(1);
-        assert_eq!(
-            l.peek_front().unwrap().upgrade().unwrap().borrow().element,
-            1
-        );
-
-        l.push_back(2);
-        assert_eq!(
-            l.peek_front().unwrap().upgrade().unwrap().borrow().element,
-            1
-        );
     }
 
     #[test]
