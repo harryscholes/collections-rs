@@ -400,6 +400,42 @@ mod tests {
     }
 
     #[test]
+    fn test_peek_back() {
+        let mut l = LinkedList::new();
+        assert!(l.peek_back().is_none());
+
+        l.push_back(1);
+        assert_eq!(
+            l.peek_back().unwrap().upgrade().unwrap().borrow().element,
+            1
+        );
+
+        l.push_back(2);
+        assert_eq!(
+            l.peek_back().unwrap().upgrade().unwrap().borrow().element,
+            2
+        );
+    }
+
+    #[test]
+    fn test_peek_front() {
+        let mut l = LinkedList::new();
+        assert!(l.peek_front().is_none());
+
+        l.push_back(1);
+        assert_eq!(
+            l.peek_front().unwrap().upgrade().unwrap().borrow().element,
+            1
+        );
+
+        l.push_back(2);
+        assert_eq!(
+            l.peek_front().unwrap().upgrade().unwrap().borrow().element,
+            1
+        );
+    }
+
+    #[test]
     fn test_len() {
         let mut l = LinkedList::new();
         assert!(l.is_empty());
