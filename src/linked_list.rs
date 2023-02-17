@@ -165,7 +165,7 @@ where
 
 impl<T> Iterator for Iter<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Clone,
 {
     type Item = T;
 
@@ -190,7 +190,7 @@ where
 
 impl<T> IntoIterator for LinkedList<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Clone,
 {
     type Item = T;
     type IntoIter = Iter<T>;
@@ -202,7 +202,7 @@ where
 
 impl<T> DoubleEndedIterator for Iter<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Clone,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.tail.clone() {
