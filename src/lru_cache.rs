@@ -37,7 +37,7 @@ where
 
     /// Time complexity: O(1)
     pub fn insert(&mut self, key: K, value: V) -> Result<(), Error> {
-        if self.map.contains_key(&key) {
+        if self.contains_key(&key) {
             return Err(Error::KeyAlreadyExists);
         }
         if self.list.len() == self.capacity {
@@ -78,6 +78,11 @@ where
                 None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
             },
         }
+    }
+
+    /// Time complexity: O(1)
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.map.contains_key(key)
     }
 
     fn insert_item(&mut self, item: Item<K, V>) {
@@ -158,6 +163,16 @@ mod tests {
         // LinkedList: head-5-3-4-tail
         assert_eq!(c.list.first().unwrap().key, 5);
         assert_eq!(c.list.last().unwrap().key, 4);
+    }
+
+    #[test]
+    fn test_contains_key() {
+        let mut c = LRUCache::with_capacity(2);
+        assert!(!c.contains_key(&1));
+        c.insert(1, 'a').unwrap();
+        assert!(c.contains_key(&1));
+        c.remove(&1);
+        assert!(!c.contains_key(&1));
     }
 
     #[test]
