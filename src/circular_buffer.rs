@@ -129,6 +129,10 @@ impl<T> CircularBuffer<T> {
     fn increment(&self, index: usize) -> usize {
         add_mod(index, 1, self.buf.len())
     }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter::new(self)
+    }
 }
 
 fn add_mod(x: usize, y: usize, modulus: usize) -> usize {
@@ -146,15 +150,74 @@ impl<T> FromIterator<T> for CircularBuffer<T> {
     }
 }
 
+/// Trip double-ended iteration if `forward_index` and `back_index` are equal
+macro_rules! trip_iteration {
+    ($self:ident, $forward_index:ident, $back_index:ident) => {
+        if $self.$forward_index == $self.$back_index {
+            $self.$forward_index = None;
+            $self.$back_index = None;
+        }
+    };
+}
+
+pub struct Iter<'a, T> {
+    cb: &'a CircularBuffer<T>,
+    forward_index: Option<usize>,
+    back_index: Option<usize>,
+}
+
+impl<'a, T> Iter<'a, T> {
+    fn new(cb: &'a CircularBuffer<T>) -> Iter<'a, T> {
+        Iter {
+            forward_index: Some(cb.start),
+            back_index: Some(cb.end),
+            cb,
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.forward_index {
+            Some(forward_index) => {
+                let el = self.cb.buf[forward_index].as_ref();
+                self.forward_index = Some(self.cb.increment(forward_index));
+                trip_iteration!(self, forward_index, back_index);
+                el
+            }
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.back_index {
+            Some(back_index) => {
+                let back_index = self.cb.decrement(back_index);
+                let el = self.cb.buf[back_index].as_ref();
+                self.back_index = Some(back_index);
+                trip_iteration!(self, forward_index, back_index);
+                el
+            }
+            None => None,
+        }
+    }
+}
+
 pub struct IntoIter<T> {
     cb: CircularBuffer<T>,
-    index: usize,
+    forward_index: Option<usize>,
+    back_index: Option<usize>,
 }
 
 impl<T> IntoIter<T> {
     fn new(cb: CircularBuffer<T>) -> IntoIter<T> {
         IntoIter {
-            index: cb.decrement(cb.start),
+            forward_index: Some(cb.start),
+            back_index: Some(cb.end),
             cb,
         }
     }
@@ -164,8 +227,30 @@ impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.index = self.cb.increment(self.index);
-        self.cb.buf[self.index].take()
+        match self.forward_index {
+            Some(forward_index) => {
+                let el = self.cb.buf[forward_index].take();
+                self.forward_index = Some(self.cb.increment(forward_index));
+                trip_iteration!(self, forward_index, back_index);
+                el
+            }
+            None => None,
+        }
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.back_index {
+            Some(back_index) => {
+                let back_index = self.cb.decrement(back_index);
+                let el = self.cb.buf[back_index].take();
+                self.back_index = Some(back_index);
+                trip_iteration!(self, forward_index, back_index);
+                el
+            }
+            None => None,
+        }
     }
 }
 
@@ -454,12 +539,109 @@ mod tests {
     }
 
     #[test]
+    fn test_iter() {
+        let cb = CircularBuffer::from_iter(0..=2);
+        let mut iter = cb.iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_buffer_not_full() {
+        let mut cb = CircularBuffer::from_iter(0..=4);
+        cb.pop_front();
+        cb.pop_back();
+        let mut iter = cb.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_rev() {
+        let cb = CircularBuffer::from_iter(0..=2);
+        let mut iter = cb.iter().rev();
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_rev_buffer_not_full() {
+        let mut cb = CircularBuffer::from_iter(0..=4);
+        cb.pop_front();
+        cb.pop_back();
+        let mut iter = cb.iter().rev();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_double_ended_iterator() {
+        let cb = CircularBuffer::from_iter(1..=6);
+        let mut iter = cb.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), Some(&6));
+        assert_eq!(iter.next_back(), Some(&5));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn test_iter_double_ended_iterator_buffer_not_full() {
+        let mut cb = CircularBuffer::from_iter(0..=7);
+        cb.pop_front();
+        cb.pop_back();
+        let mut iter = cb.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), Some(&6));
+        assert_eq!(iter.next_back(), Some(&5));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
     fn test_into_iter() {
         let cb = CircularBuffer::from_iter(0..=1);
         let mut iter = cb.into_iter();
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_into_iter_rev() {
+        let cb = CircularBuffer::from_iter(0..=1);
+        let mut iter = cb.into_iter().rev();
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_into_iter_double_ended_iterator() {
+        let cb = CircularBuffer::from_iter(1..=6);
+        let mut iter = cb.into_iter();
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next_back(), Some(6));
+        assert_eq!(iter.next_back(), Some(5));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(4));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
     }
 
     #[test]
