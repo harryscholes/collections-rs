@@ -1,4 +1,6 @@
-use crate::circular_buffer::CircularBuffer;
+use std::iter::Rev;
+
+use crate::circular_buffer::{self, CircularBuffer};
 
 /// Space complexity: O(n)
 #[derive(Clone, Debug)]
@@ -50,6 +52,31 @@ impl<T> FromIterator<T> for Stack<T> {
     }
 }
 
+pub struct IntoIter<T>(Rev<circular_buffer::IntoIter<T>>);
+
+impl<T> IntoIter<T> {
+    fn new(s: Stack<T>) -> IntoIter<T> {
+        IntoIter(s.0.into_iter().rev())
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<T> IntoIterator for Stack<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,5 +120,19 @@ mod tests {
             assert_eq!(s.peek(), Some(&i));
             assert_eq!(s.pop(), Some(i))
         }
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut s = Stack::new();
+        s.push(1);
+        s.push(2);
+        s.push(3);
+
+        let mut iter = s.into_iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
     }
 }

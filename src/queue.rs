@@ -1,4 +1,4 @@
-use crate::circular_buffer::CircularBuffer;
+use crate::circular_buffer::{self, CircularBuffer};
 
 /// Space complexity: O(n)
 #[derive(Clone, Debug)]
@@ -51,6 +51,31 @@ impl<T> FromIterator<T> for Queue<T> {
     }
 }
 
+pub struct IntoIter<T>(circular_buffer::IntoIter<T>);
+
+impl<T> IntoIter<T> {
+    fn new(q: Queue<T>) -> IntoIter<T> {
+        IntoIter(q.0.into_iter())
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<T> IntoIterator for Queue<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,5 +117,19 @@ mod tests {
         }
 
         assert_eq!(q.dequeue(), None);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut q = Queue::new();
+        q.enqueue(1);
+        q.enqueue(2);
+        q.enqueue(3);
+
+        let mut iter = q.into_iter();
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), None);
     }
 }
