@@ -2,9 +2,10 @@
 
 Rust data structures, methods and traits:
 
-- `CircularBuffer`
-- `Queue`
-- `Stack`
-- `Graph`
-- `LinkedList`
-- `LRUCache`
+- `CircularBuffer<T>`
+- `Graph<T>`
+- `LinkedList<T>`
+- `LRUCache<T>`
+- `MerkleTree`
+- `Queue<T>`
+- `Stack<T>`
