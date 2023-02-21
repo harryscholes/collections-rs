@@ -116,7 +116,7 @@ mod tests {
             assert_eq!(s.peek(), Some(&i));
         }
 
-        for i in max..=min {
+        for i in (min..=max).rev() {
             assert_eq!(s.peek(), Some(&i));
             assert_eq!(s.pop(), Some(i))
         }
