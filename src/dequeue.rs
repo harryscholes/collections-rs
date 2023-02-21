@@ -91,24 +91,4 @@ mod tests {
         assert_eq!(d.pop_front(), None);
         assert_eq!(d.pop_front(), None);
     }
-
-    // #[test]
-    // fn test_loop() {
-    //     let mut q = Dequeue::new();
-
-    //     let min = 0;
-    //     let max = 100_000;
-
-    //     for i in min..=max {
-    //         d.enqueue(i);
-    //         assert_eq!(d.peek(), Some(&min));
-    //     }
-
-    //     for i in min..=max {
-    //         assert_eq!(d.peek(), Some(&i));
-    //         assert_eq!(d.dequeue(), Some(i))
-    //     }
-
-    //     assert_eq!(d.dequeue(), None);
-    // }
 }
