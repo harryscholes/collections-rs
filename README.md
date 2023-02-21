@@ -7,5 +7,7 @@ Rust data structures, methods and traits:
 - `LinkedList<T>`
 - `LRUCache<T>`
 - `MerkleTree`
+- `MaxHeap<T>`
+- `MinHeap<T>`
 - `Queue<T>`
 - `Stack<T>`
