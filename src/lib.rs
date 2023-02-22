@@ -5,5 +5,6 @@ pub mod heap;
 pub mod linked_list;
 pub mod lru_cache;
 pub mod merkle_tree;
+pub mod priority_queue;
 pub mod queue;
 pub mod stack;
