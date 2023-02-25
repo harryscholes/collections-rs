@@ -194,7 +194,7 @@ where
 
 impl<T> Heap<T> for MinHeap<T>
 where
-    T: Ord + Copy,
+    T: Ord,
 {
     /// Time complexity: O(log(n))
     fn push(&mut self, el: T) {

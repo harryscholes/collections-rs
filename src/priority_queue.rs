@@ -26,7 +26,7 @@ where
             Some(core::cmp::Ordering::Equal) => {
                 self.age.partial_cmp(&other.age).map(|ord| ord.reverse())
             }
-            ord => return ord.map(|ord| ord),
+            ord => ord,
         }
     }
 }
@@ -50,7 +50,7 @@ pub struct PriorityQueue<T> {
 
 impl<T> PriorityQueue<T>
 where
-    T: Eq + PartialOrd + Clone,
+    T: Ord,
 {
     pub fn new() -> PriorityQueue<T> {
         PriorityQueue::with_capacity(0)
@@ -118,6 +118,15 @@ where
     /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.heap.is_empty()
+    }
+}
+
+impl<T> Default for PriorityQueue<T>
+where
+    T: Ord,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
