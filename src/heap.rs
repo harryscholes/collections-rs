@@ -5,7 +5,8 @@ pub trait Heap<T> {
 
     fn pop(&mut self) -> Option<T>;
 
-    fn delete<P: FnMut(&T) -> bool>(&mut self, predicate: P) -> Option<T>;
+    // fn delete<P: FnMut(&T) -> bool>(&mut self, predicate: P) -> Option<T>;
+    fn delete(&mut self, el: &T) -> Option<T>;
 
     fn peek(&self) -> Option<&T>;
 
@@ -92,12 +93,21 @@ where
         }
     }
 
+    /// Delete the largest item in the heap that matches `predicate`.
+    ///
+    /// Time complexity: O(n)
+    pub(crate) fn delete_match<F: FnMut(&T) -> bool>(&mut self, predicate: F) -> Option<T> {
+        match self.0.iter().position(predicate) {
+            Some(index) => self.delete_index(index),
+            None => None,
+        }
+    }
+
     /// Time complexity: O(log(n))
-    fn delete_at_index(&mut self, index: usize) -> Option<T> {
+    fn delete_index(&mut self, index: usize) -> Option<T> {
         let last_index = self.len() - 1;
         self.0.swap(index, last_index);
         let el = self.0.pop();
-
         // Heapify
         if let Some(x) = self.0.get(index) {
             if let Some(parent) = self.0.get(parent_index(index)) {
@@ -109,7 +119,6 @@ where
             }
         }
         debug_assert!(is_heap(&self.0));
-
         el
     }
 }
@@ -140,21 +149,13 @@ where
         }
     }
 
-    // /// Time complexity: O(n)
-    // fn delete(&mut self, el: &T) -> Option<T> {
-    //     let el = self.map_delete(|x| x == el);
-    //     debug_assert!(is_heap(&self.0));
-    //     el
-    // }
-
-    /// Delete the largest item in the heap that matches `predicate`.
+    /// Delete `el` from the heap.
+    ///
+    /// If `el` occurs multiple times, the one nearest to the root of the tree will be deleted.
     ///
     /// Time complexity: O(n)
-    fn delete<P: FnMut(&T) -> bool>(&mut self, predicate: P) -> Option<T> {
-        match self.0.iter().position(predicate) {
-            Some(index) => self.delete_at_index(index),
-            None => None,
-        }
+    fn delete(&mut self, el: &T) -> Option<T> {
+        self.delete_match(|x| x == el)
     }
 
     /// Time complexity: O(1)
@@ -206,10 +207,14 @@ where
         self.0.pop().map(|el| el.0)
     }
 
+    /// Delete `el` from the heap.
+    ///
+    /// If `el` occurs multiple times, the one nearest to the root of the tree will be deleted.
+    ///
     /// Time complexity: O(n)
-    fn delete<P: FnMut(&T) -> bool>(&mut self, predicate: P) -> Option<T> {
-        match self.0 .0.iter().map(|x| &x.0).position(predicate) {
-            Some(index) => self.0.delete_at_index(index).map(|rev| rev.0),
+    fn delete(&mut self, el: &T) -> Option<T> {
+        match self.0 .0.iter().map(|x| &x.0).position(|x| x == el) {
+            Some(index) => self.0.delete_index(index).map(|rev| rev.0),
             None => None,
         }
     }
@@ -396,7 +401,7 @@ mod test_max_heap {
         }
         for el in elements {
             assert!(mh.0.contains(&el));
-            assert_eq!(mh.delete(|x| x == &el), Some(el));
+            assert_eq!(mh.delete(&el), Some(el));
             assert!(!mh.0.contains(&el));
         }
     }
@@ -562,7 +567,7 @@ mod test_min_heap {
         }
         for el in elements {
             assert!(mh.0 .0.contains(&Reverse(el)));
-            assert_eq!(mh.delete(|x| x == &el), Some(el));
+            assert_eq!(mh.delete(&el), Some(el));
             assert!(!mh.0 .0.contains(&Reverse(el)));
         }
     }

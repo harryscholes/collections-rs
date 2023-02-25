@@ -89,7 +89,7 @@ where
     /// Time complexity: O(n)
     pub fn delete(&mut self, value: &T) -> Option<T> {
         self.heap
-            .delete(|item| item.value == *value)
+            .delete_match(|item| item.value == *value)
             .map(|item| item.value)
     }
 
