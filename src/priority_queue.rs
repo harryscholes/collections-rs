@@ -1,152 +1,286 @@
 use crate::heap::{Heap, MaxHeap};
 
-#[derive(Eq, PartialEq)]
-struct PriorityQueueElement<T, P> {
-    el: T,
-    priority: P,
+struct Item<T> {
+    value: T,
+    priority: usize,
+    age: usize, // FIFO ordering
 }
 
-impl<T, P> PartialOrd for PriorityQueueElement<T, P>
+impl<T> PartialEq for Item<T>
 where
     T: PartialEq,
-    P: Ord,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T> Eq for Item<T> where T: PartialEq {}
+
+impl<T> PartialOrd for Item<T>
+where
+    T: PartialOrd,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.priority.cmp(&other.priority))
+        match self.priority.partial_cmp(&other.priority) {
+            Some(core::cmp::Ordering::Equal) => {
+                self.age.partial_cmp(&other.age).map(|ord| ord.reverse())
+            }
+            ord => return ord.map(|ord| ord),
+        }
     }
 }
 
-impl<T, P> Ord for PriorityQueueElement<T, P>
+impl<T> Ord for Item<T>
 where
-    T: Eq,
-    P: Ord,
+    T: Eq + PartialOrd,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.priority.cmp(&other.priority)
+        match self.priority.cmp(&other.priority) {
+            core::cmp::Ordering::Equal => self.age.cmp(&other.age).reverse(),
+            ord => ord,
+        }
     }
 }
 
-pub struct PriorityQueue<T, P>(MaxHeap<PriorityQueueElement<T, P>>);
+pub struct PriorityQueue<T> {
+    heap: MaxHeap<Item<T>>,
+    age: usize, // FIFO ordering
+}
 
-impl<T, P> PriorityQueue<T, P>
+impl<T> PriorityQueue<T>
 where
-    T: Eq,
-    P: Ord,
+    T: Eq + PartialOrd + Clone,
 {
-    pub fn new() -> PriorityQueue<T, P> {
-        PriorityQueue(MaxHeap::new())
+    pub fn new() -> PriorityQueue<T> {
+        PriorityQueue::with_capacity(0)
     }
 
-    pub fn with_capacity(capacity: usize) -> PriorityQueue<T, P> {
-        PriorityQueue(MaxHeap::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> PriorityQueue<T> {
+        PriorityQueue {
+            heap: MaxHeap::with_capacity(capacity),
+            age: 0,
+        }
     }
 
-    pub fn enqueue(&mut self, el: T, priority: P) {
-        self.0.push(PriorityQueueElement { el, priority });
+    /// Enqueue `value` with `priority`.
+    ///
+    /// Time complexity: O(log(n))
+    pub fn enqueue(&mut self, value: T, priority: usize) {
+        self.age += 1;
+        self.heap.push(Item {
+            value,
+            priority,
+            age: self.age,
+        });
     }
 
+    /// Dequeue the highest priority item.
+    ///
+    /// Time complexity: O(log(n))
     pub fn dequeue(&mut self) -> Option<T> {
-        self.0.pop().map(|item| item.el)
+        self.heap.pop().map(|item| item.value)
     }
 
+    /// Delete `value` from the queue.
+    ///
+    /// If `value` occurs multiple times, the one with highest priority will be deleted.
+    ///
+    /// Time complexity: O(n)
+    pub fn delete(&mut self, value: &T) -> Option<T> {
+        self.heap
+            .delete(|item| item.value == *value)
+            .map(|item| item.value)
+    }
+
+    /// Update the `priority` of `value`.
+    ///
+    /// If `value` occurs multiple times, the one with highest priority will be updated.
+    ///
+    /// Time complexity: O(n)
+    pub fn update_priority(&mut self, value: T, priority: usize) -> Option<T> {
+        self.delete(&value).map(|deleted| {
+            self.enqueue(value, priority);
+            deleted
+        })
+    }
+
+    /// Time complexity: O(1)
     pub fn peek(&self) -> Option<&T> {
-        self.0.peek().map(|item| &item.el)
+        self.heap.peek().map(|item| &item.value)
     }
 
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.heap.len()
     }
 
+    /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.heap.is_empty()
     }
 }
 
 #[cfg(test)]
-mod test_max_heap {
-    use std::cmp::Ordering;
+mod test {
+    use rand::prelude::*;
 
     use super::*;
 
     #[test]
-    fn test_priority_queue_element() {
-        let el_1 = PriorityQueueElement {
-            el: 1,
-            priority: 10,
+    fn test_item_priority_trumps_age() {
+        let item_1 = Item {
+            value: 1,
+            priority: 1,
+            age: 1,
         };
-        let el_2 = PriorityQueueElement {
-            el: 1,
-            priority: 10,
+        let item_2 = Item {
+            value: 1,
+            priority: 2,
+            age: 2,
         };
-        let el_3 = PriorityQueueElement { el: 2, priority: 9 };
 
-        // Eq and PartialEq
-        assert!(el_1 == el_1);
-        assert!(el_1 == el_2);
-        assert!(el_1 != el_3);
+        assert!(item_1 == item_1);
+        assert!(item_1 == item_2);
+        assert!(item_1 < item_2);
+        assert!(item_2 > item_1);
+    }
 
-        // Ord
-        assert_eq!(el_1.cmp(&el_2), Ordering::Equal);
-        assert_eq!(el_1.cmp(&el_3), Ordering::Greater);
-        assert_eq!(el_3.cmp(&el_1), Ordering::Less);
+    #[test]
+    fn test_item_ordered_by_age_when_same_priority() {
+        let item_1 = Item {
+            value: 1,
+            priority: 0,
+            age: 1,
+        };
+        let item_2 = Item {
+            value: 1,
+            priority: 0,
+            age: 2,
+        };
+
+        assert!(item_1 == item_1);
+        assert!(item_1 == item_2);
+        assert!(item_1 > item_2);
+        assert!(item_2 < item_1);
     }
 
     #[test]
     fn test_enqueue() {
-        let mut p = PriorityQueue::new();
-        p.enqueue('a', 1);
-        assert_eq!(p.peek(), Some(&'a'));
-        p.enqueue('b', 1);
-        assert_eq!(p.peek(), Some(&'a'));
-        p.enqueue('c', 3);
-        assert_eq!(p.peek(), Some(&'c'));
-        p.enqueue('d', 2);
-        assert_eq!(p.peek(), Some(&'c'));
-        p.enqueue('e', 4);
-        assert_eq!(p.peek(), Some(&'e'));
+        let mut pq = PriorityQueue::new();
+        pq.enqueue('a', 1);
+        assert_eq!(pq.peek(), Some(&'a'));
+        pq.enqueue('b', 1);
+        assert_eq!(pq.peek(), Some(&'a'));
+        pq.enqueue('c', 3);
+        assert_eq!(pq.peek(), Some(&'c'));
+        pq.enqueue('d', 2);
+        assert_eq!(pq.peek(), Some(&'c'));
+        pq.enqueue('e', 4);
+        assert_eq!(pq.peek(), Some(&'e'));
     }
 
     #[test]
     fn test_dequeue() {
-        let mut p = PriorityQueue::new();
-        p.enqueue('a', 1);
-        p.enqueue('b', 1);
-        p.enqueue('c', 3);
-        p.enqueue('d', 2);
-        p.enqueue('e', 4);
+        let mut pq = PriorityQueue::new();
+        pq.enqueue('a', 1);
+        pq.enqueue('b', 1);
+        pq.enqueue('c', 3);
+        pq.enqueue('d', 2);
+        pq.enqueue('e', 4);
 
-        assert_eq!(p.dequeue(), Some('e'));
-        assert_eq!(p.dequeue(), Some('c'));
-        assert_eq!(p.dequeue(), Some('d'));
-        assert_eq!(p.dequeue(), Some('a'));
-        assert_eq!(p.dequeue(), Some('b'));
+        assert_eq!(pq.dequeue(), Some('e'));
+        assert_eq!(pq.dequeue(), Some('c'));
+        assert_eq!(pq.dequeue(), Some('d'));
+        assert_eq!(pq.dequeue(), Some('a'));
+        assert_eq!(pq.dequeue(), Some('b'));
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut pq = PriorityQueue::new();
+        let elements = vec![2, 6, 5, 1, 3, 7, 4];
+        for el in elements.clone() {
+            pq.enqueue(el, el as usize);
+        }
+        for el in elements {
+            assert_eq!(pq.delete(&el), Some(el));
+        }
+    }
+
+    #[test]
+    fn test_update_priority() {
+        let mut pq = PriorityQueue::new();
+        pq.enqueue('a', 1);
+        assert_eq!(pq.peek(), Some(&'a'));
+        pq.enqueue('b', 2);
+        assert_eq!(pq.peek(), Some(&'b'));
+        pq.update_priority('a', 3);
+        assert_eq!(pq.peek(), Some(&'a'));
+        assert!(pq.update_priority('z', 1).is_none());
+    }
+
+    #[test]
+    fn test_equal_priority_behave_as_lifo_queue() {
+        let mut pq = PriorityQueue::new();
+        for el in 1..=10 {
+            pq.enqueue(el, 1);
+        }
+        for el in 1..=10 {
+            assert_eq!(pq.dequeue(), Some(el));
+        }
     }
 
     #[test]
     fn test_len() {
-        let mut p = PriorityQueue::new();
-        assert_eq!(p.len(), 0);
-        p.enqueue('a', 1);
-        assert_eq!(p.len(), 1);
-        p.enqueue('b', 2);
-        assert_eq!(p.len(), 2);
-        p.enqueue('c', 3);
-        assert_eq!(p.len(), 3);
-        p.dequeue();
-        assert_eq!(p.len(), 2);
-        p.dequeue();
-        assert_eq!(p.len(), 1);
-        p.dequeue();
-        assert_eq!(p.len(), 0);
+        let mut pq = PriorityQueue::new();
+        assert_eq!(pq.len(), 0);
+        pq.enqueue('a', 1);
+        assert_eq!(pq.len(), 1);
+        pq.enqueue('b', 2);
+        assert_eq!(pq.len(), 2);
+        pq.enqueue('c', 3);
+        assert_eq!(pq.len(), 3);
+        pq.dequeue();
+        assert_eq!(pq.len(), 2);
+        pq.dequeue();
+        assert_eq!(pq.len(), 1);
+        pq.dequeue();
+        assert_eq!(pq.len(), 0);
     }
 
     #[test]
     fn test_is_empty() {
-        let mut p = PriorityQueue::new();
-        assert!(p.is_empty());
-        p.enqueue('a', 1);
-        assert!(!p.is_empty());
-        p.dequeue();
-        assert!(p.is_empty());
+        let mut pq = PriorityQueue::new();
+        assert!(pq.is_empty());
+        pq.enqueue('a', 1);
+        assert!(!pq.is_empty());
+        pq.dequeue();
+        assert!(pq.is_empty());
+    }
+
+    #[test]
+    fn test_fuzz() {
+        let n = 1_000;
+        let mut pq = PriorityQueue::with_capacity(n);
+        let mut rng = thread_rng();
+        let mut expected_root = usize::MIN;
+        let mut elements = vec![];
+        for _ in 0..n {
+            let el = rng.gen_range(0..usize::MAX);
+            elements.push(el);
+            pq.enqueue(el, el);
+            if el > expected_root {
+                expected_root = el
+            }
+            assert_eq!(pq.peek(), Some(&expected_root));
+        }
+
+        elements.sort();
+        elements.reverse();
+
+        for el in elements {
+            assert_eq!(pq.dequeue(), Some(el));
+        }
     }
 }
