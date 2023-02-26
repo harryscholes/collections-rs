@@ -1,7 +1,9 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     hash::Hash,
 };
+
+use crate::{queue::Queue, stack::Stack};
 
 /// Space complexity: O(V+E) on average, O(V^2) worst case
 #[derive(Clone, Debug)]
@@ -213,7 +215,7 @@ where
 
 pub struct BFSIterator<'a, T> {
     graph: &'a Graph<T>,
-    queue: VecDeque<&'a T>,
+    queue: Queue<&'a T>,
     visited: HashSet<&'a T>,
 }
 
@@ -224,7 +226,7 @@ where
     pub fn new(graph: &'a Graph<T>, start: &'a T) -> Self {
         BFSIterator {
             graph,
-            queue: VecDeque::from([start]),
+            queue: Queue::from([start]),
             visited: HashSet::from([start]),
         }
     }
@@ -237,7 +239,7 @@ where
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.queue.pop_front() {
+        match self.queue.dequeue() {
             Some(v) => {
                 if !self.graph.has_vertex(v) {
                     None
@@ -245,7 +247,7 @@ where
                     for u in self.graph.neighbours(v) {
                         if !self.visited.contains(&u) {
                             self.visited.insert(u);
-                            self.queue.push_back(u);
+                            self.queue.enqueue(u);
                         }
                     }
                     Some(v)
@@ -258,7 +260,7 @@ where
 
 pub struct DFSIterator<'a, T> {
     graph: &'a Graph<T>,
-    stack: Vec<&'a T>,
+    stack: Stack<&'a T>,
     visited: HashSet<&'a T>,
 }
 
@@ -269,7 +271,7 @@ where
     pub fn new(graph: &'a Graph<T>, start: &'a T) -> Self {
         DFSIterator {
             graph,
-            stack: vec![start],
+            stack: Stack::from([start]),
             visited: HashSet::from([start]),
         }
     }
