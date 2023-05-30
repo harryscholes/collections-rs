@@ -7,4 +7,5 @@ pub mod lru_cache;
 pub mod merkle_tree;
 pub mod priority_queue;
 pub mod queue;
+pub mod sparse_vector;
 pub mod stack;

@@ -11,4 +11,5 @@ Rust data structures, methods and traits:
 - `MinHeap<T>`
 - `Queue<T>`
 - `PriorityQueue<T>`
+- `SparseVector<T>`
 - `Stack<T>`
