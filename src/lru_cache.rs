@@ -2,14 +2,14 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Weak};
 
 use crate::linked_list::{LinkedList, Node};
 
-type NodeMap<K, V> = HashMap<K, Weak<RefCell<Node<Item<K, V>>>>>;
-
 /// Space complexity: O(n)
 pub struct LRUCache<K, V> {
     list: LinkedList<Item<K, V>>,
     map: NodeMap<K, V>,
     capacity: usize,
 }
+
+type NodeMap<K, V> = HashMap<K, Weak<RefCell<Node<Item<K, V>>>>>;
 
 #[derive(Clone)]
 struct Item<K, V> {
@@ -85,6 +85,7 @@ where
         self.map.contains_key(key)
     }
 
+    /// Time complexity: O(1)
     fn insert_item(&mut self, item: Item<K, V>) {
         let node = self.list.push_front(item.clone());
         self.map.insert(item.key, node);
