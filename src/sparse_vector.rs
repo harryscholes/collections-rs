@@ -1,5 +1,6 @@
 use std::{collections::HashMap, iter::FusedIterator};
 
+// Space complexity: O(d)
 pub struct SparseVector<T> {
     data: HashMap<usize, T>,
     len: usize,
@@ -23,7 +24,7 @@ impl<T> SparseVector<T>
 where
     T: std::cmp::PartialEq,
 {
-    pub fn new_with_default(len: usize, default: T) -> Self {
+    pub fn with_default(len: usize, default: T) -> Self {
         SparseVector {
             data: HashMap::new(),
             len,
@@ -31,11 +32,13 @@ where
         }
     }
 
+    // Time complexity: O(d)
     pub fn resize(&mut self, new_len: usize) {
         self.len = new_len;
         self.data.retain(|&index, _| index < self.len);
     }
 
+    // Time complexity: O(1)
     pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
         self.bounds_check(index)?;
         if value != self.default {
@@ -44,18 +47,31 @@ where
         Ok(())
     }
 
+    // Time complexity: O(1)
     pub fn remove(&mut self, index: usize) -> Result<Option<T>, Error> {
         self.bounds_check(index)?;
         Ok(self.data.remove(&index))
     }
 
+    // Time complexity: O(1)
     pub fn get(&self, index: usize) -> Result<&T, Error> {
         self.bounds_check(index)?;
-        let v = match self.data.get(&index) {
-            Some(v) => v,
-            None => &self.default,
-        };
-        Ok(v)
+        Ok(self.data.get(&index).unwrap_or(&self.default))
+    }
+
+    // Time complexity: O(1)
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    // Time complexity: O(1)
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    // Time complexity: O(n)
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter::new(self)
     }
 
     fn bounds_check(&self, index: usize) -> Result<(), Error> {
@@ -67,18 +83,6 @@ where
         } else {
             Ok(())
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    pub fn iter(&self) -> Iter<'_, T> {
-        Iter::new(self)
     }
 }
 
