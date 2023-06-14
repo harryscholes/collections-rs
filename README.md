@@ -4,6 +4,7 @@ Rust data structures, methods and traits:
 
 - `CircularBuffer<T>`
 - `Graph<T>`
+- `HashMap<K, V>`
 - `LinkedList<T>`
 - `LRUCache<T>`
 - `MerkleTree`
