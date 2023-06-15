@@ -146,6 +146,13 @@ where
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    pub fn contains_key(&self, key: &K) -> bool {
+        match self.get(key) {
+            Some(_) => true,
+            None => false,
+        }
+    }
 }
 
 impl<'a, K, V> Default for HashMap<'a, K, V>
@@ -518,5 +525,17 @@ mod tests {
         assert!(hm.is_empty());
         hm.delete(&0);
         assert_eq!(hm.len(), 0);
+    }
+
+    #[test]
+    fn test_contains_key() {
+        let mut hm = HashMap::new();
+        assert!(!hm.contains_key(&0));
+        hm.insert(0, 0);
+        assert!(hm.contains_key(&0));
+        hm.insert(0, 1);
+        assert!(hm.contains_key(&0));
+        hm.delete(&0);
+        assert!(!hm.contains_key(&0));
     }
 }
