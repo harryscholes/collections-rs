@@ -1,6 +1,8 @@
+// TODO iteration
+
 use std::hash::Hash;
 
-use crate::hash_map::HashMap;
+use crate::hash_map::{self, HashMap};
 
 pub struct HashSet<'a, T>(HashMap<'a, T, ()>);
 
@@ -35,6 +37,59 @@ where
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn iter(&'a self) -> Iter<'a, T> {
+        Iter(self.0.iter())
+    }
+}
+
+pub struct Iter<'a, T>(hash_map::Iter<'a, T, ()>);
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0.next() {
+            Some((el, _)) => Some(el),
+            None => None,
+        }
+    }
+}
+
+pub struct IntoIter<'a, T>(hash_map::IntoIter<'a, T, ()>);
+
+impl<'a, T> Iterator for IntoIter<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0.next() {
+            Some((el, _)) => Some(el),
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for HashSet<'a, T> {
+    type Item = T;
+
+    type IntoIter = IntoIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self.0.into_iter())
+    }
+}
+
+impl<'a, T> FromIterator<T> for HashSet<'a, T>
+where
+    T: Hash + PartialEq,
+{
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut hs = HashSet::new();
+        for el in iter {
+            hs.insert(el)
+        }
+        hs
+    }
 }
 
 #[cfg(test)]
@@ -67,5 +122,43 @@ mod tests {
         assert!(!hs.contains(&1));
         assert_eq!(hs.len(), 0);
         assert!(hs.is_empty());
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut hs = HashSet::new();
+        for i in 0..=2 {
+            hs.insert(i);
+        }
+
+        let mut iter = hs.iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut hs = HashSet::new();
+        for i in 0..=2 {
+            hs.insert(i);
+        }
+
+        let mut iter = hs.into_iter();
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let hs = HashSet::from_iter(0..5);
+        for i in 0..5 {
+            assert!(hs.contains(&i))
+        }
     }
 }
