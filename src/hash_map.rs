@@ -8,6 +8,7 @@ use std::{
 const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
+/// Space complexity: O(n)
 #[derive(Debug, Clone)]
 pub struct HashMap<'a, K, V> {
     buckets: Vec<Option<Bucket<K, V>>>,
@@ -27,10 +28,12 @@ impl<'a, K, V> HashMap<'a, K, V>
 where
     K: PartialEq + Hash,
 {
+    /// Time complexity: O(1)
     pub fn new() -> Self {
         Self::with_capacity(DEFAULT_CAPACITY)
     }
 
+    /// Time complexity: O(1)
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             buckets: (0..capacity).map(|_| None).collect(),
@@ -39,6 +42,7 @@ where
         }
     }
 
+    /// Time complexity: O(1) amortised, O(n) worst case
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let (ret, resize) = self.insert_without_resizing(key, value);
         if resize {
@@ -47,6 +51,7 @@ where
         ret
     }
 
+    /// Time complexity: O(1)
     fn insert_without_resizing(&mut self, key: K, value: V) -> (Option<V>, bool) {
         let bucket_index = self.bucket_index(&key);
         let mut resize = false;
@@ -79,6 +84,7 @@ where
         }
     }
 
+    /// Time complexity: O(n)
     fn resize(&mut self) {
         let new_buckets = (0..self.len()).map(|_| None).collect();
         let old_buckets = std::mem::replace(&mut self.buckets, new_buckets);
@@ -94,6 +100,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn get(&'a self, key: &K) -> Option<&'a V> {
         match &self.buckets[self.bucket_index(key)] {
             Some(ll) => {
@@ -108,6 +115,7 @@ where
         }
     }
 
+    /// Time complexity: O(1)
     pub fn delete(&mut self, key: &K) -> Option<V> {
         let bucket_index = self.bucket_index(key);
         match &mut self.buckets[bucket_index] {
@@ -135,18 +143,22 @@ where
         (self.hash(k) as usize) % self.buckets.len()
     }
 
+    /// Time complexity: O(n)
     pub fn iter(&'a self) -> Iter<'a, K, V> {
         Iter::new(self)
     }
 
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Time complexity: O(1)
     pub fn contains_key(&self, key: &K) -> bool {
         match self.get(key) {
             Some(_) => true,

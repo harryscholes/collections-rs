@@ -1,43 +1,50 @@
-// TODO iteration
-
 use std::hash::Hash;
 
 use crate::hash_map::{self, HashMap};
 
+/// Space complexity: O(n)
 pub struct HashSet<'a, T>(HashMap<'a, T, ()>);
 
 impl<'a, T> HashSet<'a, T>
 where
     T: Hash + PartialEq,
 {
+    /// Time complexity: O(1)
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
+    /// Time complexity: O(1)
     pub fn with_capacity(capacity: usize) -> Self {
         Self(HashMap::with_capacity(capacity))
     }
 
+    /// Time complexity: O(1)
     pub fn insert(&mut self, el: T) {
         self.0.insert(el, ());
     }
 
+    /// Time complexity: O(1)
     pub fn delete(&mut self, el: &T) {
         self.0.delete(el);
     }
 
+    /// Time complexity: O(1)
     pub fn contains(&self, el: &T) -> bool {
         self.0.contains_key(el)
     }
 
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Time complexity: O(n)
     pub fn iter(&'a self) -> Iter<'a, T> {
         Iter(self.0.iter())
     }
