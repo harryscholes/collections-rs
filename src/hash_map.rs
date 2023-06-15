@@ -538,4 +538,36 @@ mod tests {
         hm.delete(&0);
         assert!(!hm.contains_key(&0));
     }
+
+    #[test]
+    fn test_fuzz() {
+        let mut hm = HashMap::new();
+        let n = 100;
+
+        for i in 0..=n {
+            assert_eq!(hm.get(&i), None);
+            assert!(!hm.contains_key(&i));
+
+            hm.insert(i, i);
+
+            for j in 0..=i {
+                assert_eq!(hm.get(&j), Some(&j));
+                assert!(hm.contains_key(&j));
+            }
+        }
+
+        for i in 0..=n {
+            assert_eq!(hm.delete(&i), Some(i));
+
+            for j in 0..=i {
+                assert_eq!(hm.get(&j), None);
+                assert!(!hm.contains_key(&j));
+            }
+
+            for j in i + 1..=n {
+                assert_eq!(hm.get(&j), Some(&j));
+                assert!(hm.contains_key(&j));
+            }
+        }
+    }
 }
