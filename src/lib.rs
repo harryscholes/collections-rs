@@ -4,6 +4,7 @@ pub mod circular_buffer;
 pub mod dequeue;
 pub mod graph;
 pub mod hash_map;
+pub mod hash_set;
 pub mod heap;
 pub mod linked_list;
 pub mod lru_cache;
