@@ -160,10 +160,7 @@ where
 
     /// Time complexity: O(1)
     pub fn contains_key(&self, key: &K) -> bool {
-        match self.get(key) {
-            Some(_) => true,
-            None => false,
-        }
+        self.get(key).is_some()
     }
 }
 

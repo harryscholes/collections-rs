@@ -50,16 +50,22 @@ where
     }
 }
 
+impl<'a, T> Default for HashSet<'a, T>
+where
+    T: PartialEq + Hash,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Iter<'a, T>(hash_map::Iter<'a, T, ()>);
 
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.0.next() {
-            Some((el, _)) => Some(el),
-            None => None,
-        }
+        self.0.next().map(|(el, _)| el)
     }
 }
 
@@ -69,10 +75,7 @@ impl<'a, T> Iterator for IntoIter<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.0.next() {
-            Some((el, _)) => Some(el),
-            None => None,
-        }
+        self.0.next().map(|(el, _)| el)
     }
 }
 
