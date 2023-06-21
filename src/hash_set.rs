@@ -3,6 +3,7 @@ use std::hash::Hash;
 use crate::hash_map::{self, HashMap};
 
 /// Space complexity: O(n)
+#[derive(Debug, PartialEq)]
 pub struct HashSet<'a, T>(HashMap<'a, T, ()>);
 
 impl<'a, T> HashSet<'a, T>
@@ -47,6 +48,32 @@ where
     /// Time complexity: O(n)
     pub fn iter(&'a self) -> Iter<'a, T> {
         Iter(self.0.iter())
+    }
+
+    /// Time complexity: O(m)
+    pub fn union(&mut self, other: impl IntoIterator<Item = T>) {
+        for el in other {
+            self.insert(el);
+        }
+    }
+
+    /// Time complexity: O(m)
+    pub fn intersection(&mut self, other: impl IntoIterator<Item = T>) {
+        let mut s = HashSet::new();
+        for el in other {
+            if self.contains(&el) {
+                s.insert(el)
+            }
+        }
+        let _ = std::mem::replace(&mut self.0, s.0);
+    }
+
+    pub fn difference(&mut self, other: &HashSet<T>) {
+        for el in other.iter() {
+            if self.contains(el) {
+                self.delete(el);
+            }
+        }
     }
 }
 
@@ -99,6 +126,15 @@ where
             hs.insert(el)
         }
         hs
+    }
+}
+
+impl<'a, T, const N: usize> From<[T; N]> for HashSet<'a, T>
+where
+    T: Hash + PartialEq,
+{
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr.into_iter())
     }
 }
 
@@ -170,5 +206,76 @@ mod tests {
         for i in 0..5 {
             assert!(hs.contains(&i))
         }
+    }
+
+    #[test]
+    fn test_union_empty_set() {
+        let mut a: HashSet<usize> = HashSet::new();
+        let b = HashSet::new();
+        a.union(b);
+        assert_eq!(a, HashSet::new());
+    }
+
+    #[test]
+    fn test_union_disjoint() {
+        let mut a = HashSet::from([0]);
+        let b = HashSet::from([1]);
+        a.intersection(b);
+        assert_eq!(a, HashSet::new());
+    }
+
+    #[test]
+    fn test_union_intersecting() {
+        let mut a = HashSet::from([0, 1]);
+        let b = HashSet::from([1, 2]);
+        a.union(b);
+        assert_eq!(a, HashSet::from([0, 1, 2]));
+    }
+
+    #[test]
+    fn test_intersection_empty_set() {
+        let mut a: HashSet<usize> = HashSet::new();
+        let b = HashSet::new();
+        a.intersection(b);
+        assert_eq!(a, HashSet::new());
+    }
+    #[test]
+    fn test_intersection_disjoint() {
+        let mut a = HashSet::from([0]);
+        let b = HashSet::from([1]);
+        a.intersection(b);
+        assert_eq!(a, HashSet::new());
+    }
+
+    #[test]
+    fn test_intersection_intersecting() {
+        let mut a = HashSet::from([0, 1]);
+        let b = HashSet::from([1, 2]);
+        a.intersection(b);
+        assert_eq!(a, HashSet::from([1]));
+    }
+
+    #[test]
+    fn test_difference_empty_set() {
+        let mut a: HashSet<usize> = HashSet::new();
+        let b = HashSet::new();
+        a.difference(&b);
+        assert_eq!(a, HashSet::new());
+    }
+
+    #[test]
+    fn test_difference_disjoint() {
+        let mut a = HashSet::from([0]);
+        let b = HashSet::from([1]);
+        a.difference(&b);
+        assert_eq!(a, HashSet::from([0]));
+    }
+
+    #[test]
+    fn test_difference_intersecting() {
+        let mut a = HashSet::from([0, 1]);
+        let b = HashSet::from([1, 2]);
+        a.difference(&b);
+        assert_eq!(a, HashSet::from([0]));
     }
 }

@@ -9,7 +9,7 @@ const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HashMap<'a, K, V> {
     buckets: Vec<Option<Bucket<K, V>>>,
     len: usize,
@@ -18,7 +18,7 @@ pub struct HashMap<'a, K, V> {
 
 type Bucket<K, V> = LinkedList<Node<K, V>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Node<K, V> {
     key: K,
     value: V,
@@ -123,6 +123,9 @@ where
                 for (index, node) in ll.iter().enumerate() {
                     if node.key == *key {
                         let node = ll.remove(index);
+                        if ll.is_empty() {
+                            self.buckets[bucket_index] = None;
+                        }
                         self.len -= 1;
                         return Some(node.value);
                     }
@@ -352,6 +355,9 @@ mod tests {
         assert_eq!(hm.delete(&key_2), Some(value_2));
         assert!(hm.get(&key_2).is_none());
         assert!(hm.delete(&key_2).is_none());
+        for b in hm.buckets {
+            assert!(b.is_none());
+        }
     }
 
     #[test]
