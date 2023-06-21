@@ -52,6 +52,31 @@ impl<T> FromIterator<T> for Stack<T> {
     }
 }
 
+pub struct Iter<'a, T>(Rev<circular_buffer::Iter<'a, T>>);
+
+impl<'a, T> Iter<'a, T> {
+    fn new(s: &'a Stack<T>) -> Self {
+        Iter(s.0.iter().rev())
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Stack<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
 pub struct IntoIter<T>(Rev<circular_buffer::IntoIter<T>>);
 
 impl<T> IntoIter<T> {
@@ -102,6 +127,16 @@ mod tests {
         assert_eq!(s.pop(), Some(0));
         assert_eq!(s.peek(), None);
         assert_eq!(s.pop(), None);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let s = Stack::from([0, 1, 2]);
+        let mut iter = (&s).into_iter();
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]

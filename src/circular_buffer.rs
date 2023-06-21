@@ -263,6 +263,15 @@ impl<T> IntoIterator for CircularBuffer<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a CircularBuffer<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -618,6 +627,15 @@ mod tests {
         let mut iter = cb.into_iter();
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let cb = CircularBuffer::from_iter(0..=1);
+        let mut iter = (&cb).into_iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
         assert_eq!(iter.next(), None);
     }
 

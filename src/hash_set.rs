@@ -45,11 +45,6 @@ where
         self.0.is_empty()
     }
 
-    /// Time complexity: O(n)
-    pub fn iter(&'a self) -> Iter<'a, T> {
-        Iter(self.0.iter())
-    }
-
     /// Time complexity: O(m)
     pub fn union(&mut self, other: impl IntoIterator<Item = T>) {
         for el in other {
@@ -69,11 +64,18 @@ where
     }
 
     pub fn difference(&mut self, other: &HashSet<T>) {
-        for el in other.iter() {
+        for el in other {
             if self.contains(el) {
                 self.delete(el);
             }
         }
+    }
+}
+
+impl<'a, T> HashSet<'a, T> {
+    /// Time complexity: O(n)
+    pub fn iter(&'a self) -> Iter<'a, T> {
+        Iter(self.0.iter())
     }
 }
 
@@ -113,6 +115,16 @@ impl<'a, T> IntoIterator for HashSet<'a, T> {
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(self.0.into_iter())
+    }
+}
+
+impl<'a, T: 'a> IntoIterator for &'a HashSet<'a, T> {
+    type Item = &'a T;
+
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -172,11 +184,7 @@ mod tests {
 
     #[test]
     fn test_iter() {
-        let mut hs = HashSet::new();
-        for i in 0..=2 {
-            hs.insert(i);
-        }
-
+        let hs = HashSet::from_iter(0..=2);
         let mut iter = hs.iter();
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&1));
@@ -187,15 +195,22 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let mut hs = HashSet::new();
-        for i in 0..=2 {
-            hs.insert(i);
-        }
-
+        let hs = HashSet::from_iter(0..=2);
         let mut iter = hs.into_iter();
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let hs = HashSet::from_iter(0..=2);
+        let mut iter = (&hs).into_iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
     }

@@ -116,6 +116,18 @@ where
     }
 }
 
+impl<'a, T> IntoIterator for &'a SparseVector<T>
+where
+    T: Clone + std::cmp::PartialEq,
+{
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
 pub struct IntoIter<T> {
     sv: SparseVector<T>,
     index: usize,
@@ -261,6 +273,24 @@ mod tests {
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+
+        let mut sv = SparseVector::new(5);
+        sv.insert(4, 4usize).unwrap();
+        let dense = sv.into_iter().collect::<Vec<usize>>();
+        assert_eq!(dense, vec![0, 0, 0, 0, 4]);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let mut sv = SparseVector::new(3);
+        sv.insert(0, 0).unwrap();
+        sv.insert(2, 2).unwrap();
+        let mut iter = (&sv).into_iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
 

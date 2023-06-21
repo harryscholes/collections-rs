@@ -146,11 +146,6 @@ where
         (self.hash(k) as usize) % self.buckets.len()
     }
 
-    /// Time complexity: O(n)
-    pub fn iter(&'a self) -> Iter<'a, K, V> {
-        Iter::new(self)
-    }
-
     /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.len
@@ -164,6 +159,13 @@ where
     /// Time complexity: O(1)
     pub fn contains_key(&self, key: &K) -> bool {
         self.get(key).is_some()
+    }
+}
+
+impl<'a, K, V> HashMap<'a, K, V> {
+    /// Time complexity: O(n)
+    pub fn iter(&'a self) -> Iter<'a, K, V> {
+        Iter::new(self)
     }
 }
 
@@ -272,6 +274,16 @@ impl<'a, K, V> IntoIterator for HashMap<'a, K, V> {
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a HashMap<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    type IntoIter = Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -466,6 +478,41 @@ mod tests {
 
         let vec = hm.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![(0, 0), (1, 1), (2, 2), (3, 3)]);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let mut hm = HashMap::new();
+
+        let vec = (&hm).into_iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![]);
+
+        let key_1 = "key_1";
+        let value_1 = "value_1";
+        hm.insert(key_1, value_1);
+        let vec = (&hm).into_iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![(&key_1, &value_1)]);
+
+        let key_2 = "key_2";
+        let value_2 = "value_2";
+        hm.insert(key_2, value_2);
+        let mut vec = (&hm).into_iter().collect::<Vec<_>>();
+        vec.sort();
+        assert_eq!(vec, vec![(&key_1, &value_1), (&key_2, &value_2)]);
+
+        let new_value_1 = "new_value_1";
+        hm.insert(key_1, new_value_1);
+        let mut vec = (&hm).into_iter().collect::<Vec<_>>();
+        vec.sort();
+        assert_eq!(vec, vec![(&key_1, &new_value_1), (&key_2, &value_2),]);
+
+        hm.delete(&key_1);
+        let vec = (&hm).into_iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![(&key_2, &value_2)]);
+
+        hm.delete(&key_2);
+        let vec = (&hm).into_iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![]);
     }
 
     #[test]

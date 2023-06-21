@@ -1,4 +1,4 @@
-use crate::circular_buffer::CircularBuffer;
+use crate::circular_buffer::{self, CircularBuffer};
 
 /// Space complexity: O(n)
 #[derive(Clone, Debug)]
@@ -47,9 +47,93 @@ impl<T> Dequeue<T> {
     }
 }
 
+impl<'a, T> Dequeue<T> {
+    pub fn iter(&'a self) -> Iter<'a, T> {
+        Iter::new(self)
+    }
+}
+
 impl<T> Default for Dequeue<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct Iter<'a, T>(circular_buffer::Iter<'a, T>);
+
+impl<'a, T> Iter<'a, T> {
+    fn new(q: &'a Dequeue<T>) -> Self {
+        Iter(q.0.iter())
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Dequeue<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
+pub struct IntoIter<T>(circular_buffer::IntoIter<T>);
+
+impl<T> IntoIter<T> {
+    fn new(q: Dequeue<T>) -> IntoIter<T> {
+        IntoIter(q.0.into_iter())
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back()
+    }
+}
+
+impl<T> IntoIterator for Dequeue<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self)
+    }
+}
+
+impl<T> FromIterator<T> for Dequeue<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut d = Dequeue::new();
+        for el in iter {
+            d.push_back(el)
+        }
+        d
+    }
+}
+
+impl<T, const N: usize> From<[T; N]> for Dequeue<T> {
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr.into_iter())
     }
 }
 
@@ -90,5 +174,57 @@ mod tests {
         assert_eq!(d.peek_front(), None);
         assert_eq!(d.pop_front(), None);
         assert_eq!(d.pop_front(), None);
+    }
+
+    #[test]
+    fn test_iter() {
+        let d = Dequeue::from_iter(0..=2);
+        let mut iter = d.iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_rev() {
+        let d = Dequeue::from_iter(0..=2);
+        let mut iter = d.iter().rev();
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_double_ended_iterator() {
+        let d = Dequeue::from_iter(1..=6);
+        let mut iter = d.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), Some(&6));
+        assert_eq!(iter.next_back(), Some(&5));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let d = Dequeue::from_iter(0..=1);
+        let mut iter = d.into_iter();
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter() {
+        let d = Dequeue::from_iter(0..=1);
+        let mut iter = (&d).into_iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), None);
     }
 }
