@@ -36,7 +36,12 @@ impl<T> LinkedList<T> {
     }
 
     /// Time complexity: O(1)
-    pub fn push_back(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
+    pub fn push_back(&mut self, elt: T) {
+        self.push_back_impl(elt);
+    }
+
+    /// Time complexity: O(1)
+    pub(crate) fn push_back_impl(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
         let node = Rc::new(RefCell::new(Node::new(elt)));
         node.borrow_mut().next = None;
         match &self.tail {
@@ -55,7 +60,12 @@ impl<T> LinkedList<T> {
     }
 
     /// Time complexity: O(1)
-    pub fn push_front(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
+    pub fn push_front(&mut self, elt: T) {
+        self.push_front_impl(elt);
+    }
+
+    /// Time complexity: O(1)
+    pub(crate) fn push_front_impl(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
         let node = Rc::new(RefCell::new(Node::new(elt)));
         node.borrow_mut().prev = None;
         match &self.head {
@@ -182,7 +192,6 @@ where
     T: Clone,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        // self.0.pop_back()
         match self.tail.clone() {
             None => None,
             Some(tail) => {
@@ -358,8 +367,8 @@ mod tests {
     fn test_unlink() {
         let mut l = LinkedList::new();
         l.push_front(4);
-        let node_3 = l.push_front(3);
-        let node_2 = l.push_front(2);
+        let node_3 = l.push_front_impl(3);
+        let node_2 = l.push_front_impl(2);
         l.push_front(1);
         assert_eq!(l.first(), Some(1));
         assert_eq!(l.last(), Some(4));
@@ -381,7 +390,7 @@ mod tests {
     fn test_node_weak_pointer() {
         let mut l = LinkedList::new();
         l.push_front(3);
-        let weak_node_2 = l.push_front(2);
+        let weak_node_2 = l.push_front_impl(2);
         l.push_front(1);
 
         let node_2 = weak_node_2.upgrade().unwrap();
@@ -394,7 +403,7 @@ mod tests {
     fn test_unlink_panic() {
         let mut l = LinkedList::new();
         l.push_front(3);
-        let weak_node_2 = l.push_front(2);
+        let weak_node_2 = l.push_front_impl(2);
         l.push_front(1);
 
         let node_2 = weak_node_2.upgrade().unwrap();

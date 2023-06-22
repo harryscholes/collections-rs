@@ -87,7 +87,7 @@ where
 
     /// Time complexity: O(1)
     fn insert_item(&mut self, item: Item<K, V>) {
-        let node = self.list.push_front(item.clone());
+        let node = self.list.push_front_impl(item.clone());
         self.map.insert(item.key, node);
     }
 }
