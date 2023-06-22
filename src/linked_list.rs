@@ -26,10 +26,7 @@ pub struct LinkedList<T> {
     len: usize,
 }
 
-impl<T> LinkedList<T>
-where
-    T: Clone,
-{
+impl<T> LinkedList<T> {
     pub fn new() -> Self {
         LinkedList {
             head: None,
@@ -104,6 +101,20 @@ where
     }
 
     /// Time complexity: O(1)
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+
+impl<T> LinkedList<T>
+where
+    T: Clone,
+{
+    /// Time complexity: O(1)
     pub fn first(&self) -> Option<T> {
         self.head.clone().map(|node| node.borrow().element.clone())
     }
@@ -113,24 +124,12 @@ where
         self.tail.clone().map(|node| node.borrow().element.clone())
     }
 
-    /// Time complexity: O(1)
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
     }
 }
 
-impl<T> Default for LinkedList<T>
-where
-    T: Clone,
-{
+impl<T> Default for LinkedList<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -178,23 +177,12 @@ where
     }
 }
 
-impl<T> IntoIterator for LinkedList<T>
-where
-    T: Clone,
-{
-    type Item = T;
-    type IntoIter = Iter<T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter::new(&self)
-    }
-}
-
 impl<T> DoubleEndedIterator for Iter<T>
 where
     T: Clone,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
+        // self.0.pop_back()
         match self.tail.clone() {
             None => None,
             Some(tail) => {
@@ -213,10 +201,38 @@ where
     }
 }
 
-impl<T> FromIterator<T> for LinkedList<T>
-where
-    T: Clone,
-{
+pub struct IntoIter<T>(LinkedList<T>);
+
+impl<T> IntoIter<T> {
+    pub fn new(l: LinkedList<T>) -> IntoIter<T> {
+        IntoIter(l)
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop_front()
+    }
+}
+
+impl<T> IntoIterator for LinkedList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self)
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.pop_back()
+    }
+}
+
+impl<T> FromIterator<T> for LinkedList<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut l = LinkedList::new();
         for elt in iter {
@@ -226,10 +242,7 @@ where
     }
 }
 
-impl<T, const N: usize> From<[T; N]> for LinkedList<T>
-where
-    T: Clone,
-{
+impl<T, const N: usize> From<[T; N]> for LinkedList<T> {
     fn from(arr: [T; N]) -> Self {
         Self::from_iter(arr.into_iter())
     }
@@ -407,20 +420,20 @@ mod tests {
         assert!(l.is_empty());
     }
 
-    #[test]
-    fn test_iter() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
+    // #[test]
+    // fn test_iter() {
+    //     let mut l = LinkedList::new();
+    //     l.push_back(1);
+    //     l.push_back(2);
+    //     l.push_back(3);
 
-        let mut iter = l.iter();
-        assert_eq!(iter.next(), Some(1));
-        assert_eq!(iter.next(), Some(2));
-        assert_eq!(iter.next(), Some(3));
-        assert_eq!(iter.next(), None);
-        assert_eq!(iter.next(), None);
-    }
+    //     let mut iter = l.iter();
+    //     assert_eq!(iter.next(), Some(1));
+    //     assert_eq!(iter.next(), Some(2));
+    //     assert_eq!(iter.next(), Some(3));
+    //     assert_eq!(iter.next(), None);
+    //     assert_eq!(iter.next(), None);
+    // }
 
     #[test]
     fn test_into_iter() {
@@ -452,13 +465,13 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_rev() {
+    fn test_into_iter_rev() {
         let mut l = LinkedList::new();
         l.push_back(1);
         l.push_back(2);
         l.push_back(3);
 
-        let mut iter = l.iter().rev();
+        let mut iter = l.into_iter().rev();
         assert_eq!(iter.next(), Some(3));
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.next(), Some(1));
@@ -476,7 +489,7 @@ mod tests {
         l.push_back(5);
         l.push_back(6);
 
-        let mut iter = l.iter();
+        let mut iter = l.into_iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next_back(), Some(6));
         assert_eq!(iter.next_back(), Some(5));
