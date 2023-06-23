@@ -52,7 +52,6 @@ where
     /// Time complexity: O(1)
     pub fn get(&mut self, key: &K) -> Option<Ref<V>> {
         match self.map.get(key) {
-            None => None,
             Some(node) => {
                 self.list.move_to_front(node);
                 match self.list.first() {
@@ -60,13 +59,13 @@ where
                     None => panic!("First node is `None`"),
                 }
             }
+            None => None,
         }
     }
 
     /// Time complexity: O(1)
     pub fn remove(&mut self, key: &K) -> Option<V> {
         match self.map.get(key) {
-            None => None,
             Some(node) => match node.upgrade() {
                 Some(node) => {
                     let item = self.list.remove(node);
@@ -75,6 +74,7 @@ where
                 }
                 None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
             },
+            None => None,
         }
     }
 
@@ -201,7 +201,7 @@ mod linked_list {
                     node.borrow_mut().next = Some(head.clone());
                 }
             }
-            self.head = Some(node.clone());
+            self.head = Some(node);
             self.len += 1;
         }
 
