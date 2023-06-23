@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{cell::Ref, collections::HashMap, hash::Hash};
 
 use self::linked_list::{LinkedList, WeakLink};
 
@@ -25,7 +25,6 @@ pub enum Error {
 impl<K, V> LRUCache<K, V>
 where
     K: Clone + Hash + Eq,
-    V: Clone,
 {
     pub fn with_capacity(capacity: usize) -> Self {
         LRUCache {
@@ -51,17 +50,16 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn get(&mut self, key: &K) -> Option<V> {
+    pub fn get(&mut self, key: &K) -> Option<Ref<V>> {
         match self.map.get(key) {
             None => None,
-            Some(node) => match node.upgrade() {
-                Some(node) => {
-                    let item = self.list.unlink(node);
-                    self.insert_item(item.clone());
-                    Some(item.value)
+            Some(node) => {
+                self.list.move_to_front(node);
+                match self.list.first() {
+                    Some(item) => Some(Ref::map(item, |item| &item.value)),
+                    None => panic!("First node is `None`"),
                 }
-                None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
-            },
+            }
         }
     }
 
@@ -71,7 +69,7 @@ where
             None => None,
             Some(node) => match node.upgrade() {
                 Some(node) => {
-                    let item = self.list.unlink(node);
+                    let item = self.list.remove(node);
                     self.map.remove(key);
                     Some(item.value)
                 }
@@ -87,15 +85,16 @@ where
 
     /// Time complexity: O(1)
     fn insert_item(&mut self, item: Item<K, V>) {
-        let node = self.list.push_front(item.clone());
-        self.map.insert(item.key, node);
+        let key = item.key.clone();
+        let node = self.list.push_front(item);
+        self.map.insert(key, node);
     }
 }
 
 #[allow(dead_code)]
 mod linked_list {
     use std::{
-        cell::RefCell,
+        cell::{Ref, RefCell},
         rc::{Rc, Weak},
     };
 
@@ -155,11 +154,22 @@ mod linked_list {
 
         /// Time complexity: O(1)
         pub fn pop_back(&mut self) -> Option<T> {
-            self.tail.clone().map(|node| self.unlink(node))
+            self.tail.clone().map(|node| self.remove(node))
         }
 
         /// Time complexity: O(1)
-        pub fn unlink(&mut self, node: Link<T>) -> T {
+        pub fn move_to_front(&mut self, node: &WeakLink<T>) {
+            match node.upgrade() {
+                Some(node) => {
+                    self.unlink(node.clone());
+                    self.link_at_front(node);
+                }
+                None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
+            };
+        }
+
+        /// Time complexity: O(1)
+        fn unlink(&mut self, node: Link<T>) {
             match node.borrow().prev.clone() {
                 Some(prev) => prev.borrow_mut().next = node.borrow().next.clone(),
                 None => self.head = node.borrow().next.clone(),
@@ -169,10 +179,44 @@ mod linked_list {
                 None => self.tail = node.borrow().prev.clone(),
             };
             self.len -= 1;
+        }
+
+        pub fn remove(&mut self, node: Link<T>) -> T {
+            self.unlink(node.clone());
             match Rc::try_unwrap(node) {
                 Ok(node) => node.into_inner().element,
                 Err(_) => panic!("Unwrapping `Rc` failed because more than one reference exists"),
             }
+        }
+
+        fn link_at_front(&mut self, node: Link<T>) {
+            node.borrow_mut().prev = None;
+            match &self.head {
+                None => {
+                    self.tail = Some(node.clone());
+                    node.borrow_mut().next = None;
+                }
+                Some(head) => {
+                    head.borrow_mut().prev = Some(node.clone());
+                    node.borrow_mut().next = Some(head.clone());
+                }
+            }
+            self.head = Some(node.clone());
+            self.len += 1;
+        }
+
+        /// Time complexity: O(1)
+        pub fn first(&self) -> Option<Ref<T>> {
+            self.head
+                .as_ref()
+                .map(|node| Ref::map(node.borrow(), |n| &n.element))
+        }
+
+        /// Time complexity: O(1)
+        pub fn last(&self) -> Option<Ref<T>> {
+            self.tail
+                .as_ref()
+                .map(|node| Ref::map(node.borrow(), |n| &n.element))
         }
 
         /// Time complexity: O(1)
@@ -182,21 +226,6 @@ mod linked_list {
 
         pub fn is_empty(&self) -> bool {
             self.len == 0
-        }
-    }
-
-    impl<T> LinkedList<T>
-    where
-        T: Clone,
-    {
-        /// Time complexity: O(1)
-        pub fn first(&self) -> Option<T> {
-            self.head.clone().map(|node| node.borrow().element.clone())
-        }
-
-        /// Time complexity: O(1)
-        pub fn last(&self) -> Option<T> {
-            self.tail.clone().map(|node| node.borrow().element.clone())
         }
     }
 
@@ -210,10 +239,10 @@ mod linked_list {
             assert!(l.first().is_none());
 
             l.push_front(1);
-            assert_eq!(l.first(), Some(1));
+            assert_eq!(*l.first().unwrap(), 1);
 
             l.push_front(2);
-            assert_eq!(l.first(), Some(2));
+            assert_eq!(*l.first().unwrap(), 2);
         }
 
         #[test]
@@ -222,10 +251,10 @@ mod linked_list {
             assert!(l.last().is_none());
 
             l.push_front(1);
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.last().unwrap(), 1);
 
             l.push_front(2);
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.last().unwrap(), 1);
         }
 
         #[test]
@@ -235,16 +264,16 @@ mod linked_list {
             assert!(l.last().is_none());
 
             l.push_front(1);
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 1);
 
             l.push_front(2);
-            assert_eq!(l.first(), Some(2));
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.first().unwrap(), 2);
+            assert_eq!(*l.last().unwrap(), 1);
 
             l.push_front(3);
-            assert_eq!(l.first(), Some(3));
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.first().unwrap(), 3);
+            assert_eq!(*l.last().unwrap(), 1);
         }
 
         #[test]
@@ -255,12 +284,12 @@ mod linked_list {
             l.push_front(1);
 
             assert_eq!(l.pop_back(), Some(3));
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(2));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 2);
 
             assert_eq!(l.pop_back(), Some(2));
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(1));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 1);
 
             assert_eq!(l.pop_back(), Some(1));
             assert!(l.first().is_none());
@@ -274,16 +303,16 @@ mod linked_list {
             let node_3 = l.push_front(3);
             let node_2 = l.push_front(2);
             l.push_front(1);
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(4));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 4);
 
             l.unlink(node_2.upgrade().unwrap());
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(4));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 4);
 
             l.unlink(node_3.upgrade().unwrap());
-            assert_eq!(l.first(), Some(1));
-            assert_eq!(l.last(), Some(4));
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 4);
         }
 
         #[test]
@@ -300,7 +329,7 @@ mod linked_list {
 
         #[test]
         #[should_panic]
-        fn test_unlink_panic() {
+        fn test_remove_panic() {
             let mut l = LinkedList::new();
             l.push_front(3);
             let weak_node_2 = l.push_front(2);
@@ -308,7 +337,7 @@ mod linked_list {
 
             let node_2 = weak_node_2.upgrade().unwrap();
             let _another_node_2_ref = node_2.clone();
-            l.unlink(node_2);
+            l.remove(node_2);
         }
 
         #[test]
@@ -351,27 +380,27 @@ mod tests {
 
         c.insert(1, 'a').unwrap();
         // LinkedList: head-1-None-tail
-        assert_eq!(c.get(&1), Some('a'));
+        assert_eq!(*c.get(&1).unwrap(), 'a');
 
         c.insert(2, 'b').unwrap();
         // LinkedList: head-2-1-tail
-        assert_eq!(c.get(&2), Some('b'));
+        assert_eq!(*c.get(&2).unwrap(), 'b');
 
         c.insert(3, 'c').unwrap();
         // LinkedList: head-3-2-tail
         assert!(c.get(&1).is_none());
         // LinkedList: head-2-3-tail
-        assert_eq!(c.get(&2), Some('b'));
+        assert_eq!(*c.get(&2).unwrap(), 'b');
         // LinkedList: head-3-2-tail
-        assert_eq!(c.get(&3), Some('c'));
+        assert_eq!(*c.get(&3).unwrap(), 'c');
 
         c.insert(4, 'd').unwrap();
         // LinkedList: head-4-3-tail
         assert!(c.get(&2).is_none());
         // LinkedList: head-3-4-tail
-        assert_eq!(c.get(&3), Some('c'));
+        assert_eq!(*c.get(&3).unwrap(), 'c');
         // LinkedList: head-4-3-tail
-        assert_eq!(c.get(&4), Some('d'));
+        assert_eq!(*c.get(&4).unwrap(), 'd');
     }
 
     #[test]
