@@ -54,10 +54,9 @@ where
         match self.map.get(key) {
             Some(node) => {
                 self.list.move_to_front(node);
-                match self.list.first() {
-                    Some(item) => Some(Ref::map(item, |item| &item.value)),
-                    None => panic!("First node is `None`"),
-                }
+                self.list
+                    .first()
+                    .map(|item| Ref::map(item, |item| &item.value))
             }
             None => None,
         }
@@ -136,6 +135,12 @@ mod linked_list {
         /// Time complexity: O(1)
         pub fn push_front(&mut self, elt: T) -> WeakLink<T> {
             let node = Rc::new(RefCell::new(Node::new(elt)));
+            self.push_node_front(node.clone());
+            Rc::downgrade(&node)
+        }
+
+        /// Time complexity: O(1)
+        fn push_node_front(&mut self, node: Link<T>) {
             node.borrow_mut().prev = None;
             match &self.head {
                 None => {
@@ -147,9 +152,8 @@ mod linked_list {
                     node.borrow_mut().next = Some(head.clone());
                 }
             }
-            self.head = Some(node.clone());
+            self.head = Some(node);
             self.len += 1;
-            Rc::downgrade(&node)
         }
 
         /// Time complexity: O(1)
@@ -162,7 +166,7 @@ mod linked_list {
             match node.upgrade() {
                 Some(node) => {
                     self.unlink(node.clone());
-                    self.link_at_front(node);
+                    self.push_node_front(node);
                 }
                 None => panic!("`Weak` pointer to `Node` could not be upgraded to `Rc`"),
             };
@@ -187,22 +191,6 @@ mod linked_list {
                 Ok(node) => node.into_inner().element,
                 Err(_) => panic!("Unwrapping `Rc` failed because more than one reference exists"),
             }
-        }
-
-        fn link_at_front(&mut self, node: Link<T>) {
-            node.borrow_mut().prev = None;
-            match &self.head {
-                None => {
-                    self.tail = Some(node.clone());
-                    node.borrow_mut().next = None;
-                }
-                Some(head) => {
-                    head.borrow_mut().prev = Some(node.clone());
-                    node.borrow_mut().next = Some(head.clone());
-                }
-            }
-            self.head = Some(node);
-            self.len += 1;
         }
 
         /// Time complexity: O(1)
@@ -299,24 +287,24 @@ mod linked_list {
         #[test]
         fn test_unlink() {
             let mut l = LinkedList::new();
-            l.push_front(4);
             let node_3 = l.push_front(3);
             let node_2 = l.push_front(2);
             l.push_front(1);
+
             assert_eq!(*l.first().unwrap(), 1);
-            assert_eq!(*l.last().unwrap(), 4);
+            assert_eq!(*l.last().unwrap(), 3);
 
             l.unlink(node_2.upgrade().unwrap());
             assert_eq!(*l.first().unwrap(), 1);
-            assert_eq!(*l.last().unwrap(), 4);
+            assert_eq!(*l.last().unwrap(), 3);
 
             l.unlink(node_3.upgrade().unwrap());
             assert_eq!(*l.first().unwrap(), 1);
-            assert_eq!(*l.last().unwrap(), 4);
+            assert_eq!(*l.last().unwrap(), 1);
         }
 
         #[test]
-        fn test_node_weak_pointer() {
+        fn test_unlink_node_weak_pointer() {
             let mut l = LinkedList::new();
             l.push_front(3);
             let weak_node_2 = l.push_front(2);
@@ -324,6 +312,36 @@ mod linked_list {
 
             let node_2 = weak_node_2.upgrade().unwrap();
             l.unlink(node_2);
+            assert!(weak_node_2.upgrade().is_none());
+        }
+
+        #[test]
+        fn test_remove() {
+            let mut l = LinkedList::new();
+            let node_3 = l.push_front(3);
+            let node_2 = l.push_front(2);
+            l.push_front(1);
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 3);
+
+            l.remove(node_2.upgrade().unwrap());
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 3);
+
+            l.remove(node_3.upgrade().unwrap());
+            assert_eq!(*l.first().unwrap(), 1);
+            assert_eq!(*l.last().unwrap(), 1);
+        }
+
+        #[test]
+        fn test_remove_node_weak_pointer() {
+            let mut l = LinkedList::new();
+            l.push_front(3);
+            let weak_node_2 = l.push_front(2);
+            l.push_front(1);
+
+            let node_2 = weak_node_2.upgrade().unwrap();
+            l.remove(node_2);
             assert!(weak_node_2.upgrade().is_none());
         }
 
