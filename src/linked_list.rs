@@ -1,13 +1,20 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
-
-pub struct Node<T> {
-    pub element: T,
-    next: Option<Rc<RefCell<Node<T>>>>,
-    prev: Option<Rc<RefCell<Node<T>>>>,
+/// Space complexity: O(n)
+#[derive(Debug)]
+pub struct LinkedList<T> {
+    head: Link<T>,
+    tail: Link<T>,
+    len: usize,
 }
+
+/// Space complexity: O(1)
+#[derive(Debug)]
+pub struct Node<T> {
+    element: T,
+    next: Link<T>,
+    prev: Link<T>,
+}
+
+type Link<T> = Option<*mut Node<T>>;
 
 impl<T> Node<T> {
     fn new(element: T) -> Self {
@@ -17,13 +24,6 @@ impl<T> Node<T> {
             prev: None,
         }
     }
-}
-
-/// Space complexity: O(n)
-pub struct LinkedList<T> {
-    head: Option<Rc<RefCell<Node<T>>>>,
-    tail: Option<Rc<RefCell<Node<T>>>>,
-    len: usize,
 }
 
 impl<T> LinkedList<T> {
@@ -37,77 +37,68 @@ impl<T> LinkedList<T> {
 
     /// Time complexity: O(1)
     pub fn push_back(&mut self, elt: T) {
-        self.push_back_impl(elt);
-    }
-
-    /// Time complexity: O(1)
-    pub(crate) fn push_back_impl(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
-        let node = Rc::new(RefCell::new(Node::new(elt)));
-        node.borrow_mut().next = None;
-        match &self.tail {
-            None => {
-                self.head = Some(node.clone());
-                node.borrow_mut().prev = None;
-            }
-            Some(tail) => {
-                tail.borrow_mut().next = Some(node.clone());
-                node.borrow_mut().prev = Some(tail.clone());
-            }
+        let new_tail = Box::into_raw(Box::new(Node::new(elt)));
+        match self.tail {
+            Some(old_tail) => unsafe {
+                (*old_tail).next = Some(new_tail);
+                (*new_tail).prev = Some(old_tail);
+            },
+            None => self.head = Some(new_tail),
         }
-        self.tail = Some(node.clone());
+        self.tail = Some(new_tail);
         self.len += 1;
-        Rc::downgrade(&node)
     }
 
     /// Time complexity: O(1)
     pub fn push_front(&mut self, elt: T) {
-        self.push_front_impl(elt);
-    }
-
-    /// Time complexity: O(1)
-    pub(crate) fn push_front_impl(&mut self, elt: T) -> Weak<RefCell<Node<T>>> {
-        let node = Rc::new(RefCell::new(Node::new(elt)));
-        node.borrow_mut().prev = None;
-        match &self.head {
-            None => {
-                self.tail = Some(node.clone());
-                node.borrow_mut().next = None;
-            }
-            Some(head) => {
-                head.borrow_mut().prev = Some(node.clone());
-                node.borrow_mut().next = Some(head.clone());
-            }
+        let new_head = Box::into_raw(Box::new(Node::new(elt)));
+        match self.head {
+            Some(old_head) => unsafe {
+                (*old_head).prev = Some(new_head);
+                (*new_head).next = Some(old_head);
+            },
+            None => self.tail = Some(new_head),
         }
-        self.head = Some(node.clone());
+        self.head = Some(new_head);
         self.len += 1;
-        Rc::downgrade(&node)
     }
 
     /// Time complexity: O(1)
     pub fn pop_back(&mut self) -> Option<T> {
-        self.tail.clone().map(|node| self.unlink(node))
+        self.tail.map(|old_tail| unsafe {
+            match (*old_tail).prev {
+                Some(new_tail) => {
+                    self.tail = Some(new_tail);
+                    (*new_tail).next = None;
+                }
+                None => {
+                    self.head = None;
+                    self.tail = None;
+                }
+            }
+            let el = Box::from_raw(old_tail).element;
+            self.len -= 1;
+            el
+        })
     }
 
     /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
-        self.head.clone().map(|node| self.unlink(node))
-    }
-
-    /// Time complexity: O(1)
-    pub fn unlink(&mut self, node: Rc<RefCell<Node<T>>>) -> T {
-        match node.borrow().prev.clone() {
-            Some(prev) => prev.borrow_mut().next = node.borrow().next.clone(),
-            None => self.head = node.borrow().next.clone(),
-        };
-        match node.borrow().next.clone() {
-            Some(next) => next.borrow_mut().prev = node.borrow().prev.clone(),
-            None => self.tail = node.borrow().prev.clone(),
-        };
-        self.len -= 1;
-        match Rc::try_unwrap(node) {
-            Ok(node) => node.into_inner().element,
-            Err(_) => panic!("Unwrapping `Rc` failed because more than one reference exists"),
-        }
+        self.head.map(|old_head| unsafe {
+            match (*old_head).next {
+                Some(new_head) => {
+                    self.head = Some(new_head);
+                    (*new_head).prev = None;
+                }
+                None => {
+                    self.head = None;
+                    self.tail = None;
+                }
+            }
+            let el = Box::from_raw(old_head).element;
+            self.len -= 1;
+            el
+        })
     }
 
     /// Time complexity: O(1)
@@ -115,27 +106,63 @@ impl<T> LinkedList<T> {
         self.len
     }
 
+    /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
-}
 
-impl<T> LinkedList<T>
-where
-    T: Clone,
-{
     /// Time complexity: O(1)
-    pub fn first(&self) -> Option<T> {
-        self.head.clone().map(|node| node.borrow().element.clone())
+    pub fn first(&self) -> Option<&T> {
+        self.head.map(|head| unsafe { &(*head).element })
     }
 
     /// Time complexity: O(1)
-    pub fn last(&self) -> Option<T> {
-        self.tail.clone().map(|node| node.borrow().element.clone())
+    pub fn last(&self) -> Option<&T> {
+        self.tail.map(|tail| unsafe { &(*tail).element })
     }
 
+    /// Time complexity: O(n)
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
+    }
+
+    /// Time complexity: O(n)
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut::new(self)
+    }
+
+    /// Time complexity: O(n)
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        if index >= self.len() || self.is_empty() {
+            None
+        } else if index == 0 {
+            self.pop_front()
+        } else if index == self.len() - 1 {
+            self.pop_back()
+        } else {
+            let mut curr = self.head;
+            for _ in 0..index {
+                curr = match curr {
+                    Some(curr) => unsafe { (*curr).next },
+                    None => None,
+                }
+            }
+            if let Some(curr) = curr {
+                unsafe {
+                    if let Some(prev) = (*curr).prev {
+                        (*prev).next = (*curr).next;
+                    }
+                    if let Some(next) = (*curr).next {
+                        (*next).prev = (*curr).prev;
+                    }
+                }
+            };
+            let el = curr
+                .take()
+                .map(|curr| unsafe { Box::from_raw(curr).element });
+            self.len -= 1;
+            el
+        }
     }
 }
 
@@ -145,68 +172,89 @@ impl<T> Default for LinkedList<T> {
     }
 }
 
-pub struct Iter<T> {
-    head: Option<Rc<RefCell<Node<T>>>>,
-    tail: Option<Rc<RefCell<Node<T>>>>,
+pub struct Iter<'a, T> {
+    head: &'a Link<T>,
+    tail: &'a Link<T>,
 }
 
-impl<T> Iter<T>
-where
-    T: Clone,
-{
-    pub fn new(l: &LinkedList<T>) -> Iter<T> {
+impl<'a, T> Iter<'a, T> {
+    pub fn new(l: &'a LinkedList<T>) -> Self {
         Iter {
-            head: l.head.clone(),
-            tail: l.tail.clone(),
+            head: &l.head,
+            tail: &l.tail,
         }
     }
 }
 
-impl<T> Iterator for Iter<T>
-where
-    T: Clone,
-{
-    type Item = T;
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.head.clone() {
-            None => None,
-            Some(head) => {
-                let elt = head.borrow().element.clone();
-                if let Some(tail) = self.tail.clone() {
-                    if Rc::ptr_eq(&head, &tail) {
-                        self.head = None;
-                        self.tail = None;
-                        return Some(elt);
-                    }
-                }
-                self.head = head.borrow().next.clone();
-                Some(elt)
+        self.head.map(|head| unsafe {
+            if self.head != self.tail {
+                self.head = &(*head).next;
+            } else {
+                self.head = &None;
+                self.tail = &None;
             }
+
+            &(*head).element
+        })
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.tail.map(|tail| unsafe {
+            if self.head != self.tail {
+                self.tail = &(*tail).prev;
+            } else {
+                self.head = &None;
+                self.tail = &None;
+            }
+
+            &(*tail).element
+        })
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LinkedList<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
+pub struct IterMut<'a, T> {
+    head: &'a Link<T>,
+    tail: &'a Link<T>,
+}
+
+impl<'a, T> IterMut<'a, T> {
+    pub fn new(l: &'a mut LinkedList<T>) -> Self {
+        IterMut {
+            head: &l.head,
+            tail: &l.tail,
         }
     }
 }
 
-impl<T> DoubleEndedIterator for Iter<T>
-where
-    T: Clone,
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self.tail.clone() {
-            None => None,
-            Some(tail) => {
-                let elt = tail.borrow().element.clone();
-                if let Some(head) = self.head.clone() {
-                    if Rc::ptr_eq(&head, &tail) {
-                        self.head = None;
-                        self.tail = None;
-                        return Some(elt);
-                    }
-                }
-                self.tail = tail.borrow().prev.clone();
-                Some(elt)
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.head.map(|head| unsafe {
+            if self.head != self.tail {
+                self.head = &(*head).next;
+            } else {
+                self.head = &None;
+                self.tail = &None;
             }
-        }
+
+            &mut (*head).element
+        })
     }
 }
 
@@ -226,18 +274,18 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.pop_back()
+    }
+}
+
 impl<T> IntoIterator for LinkedList<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
-    }
-}
-
-impl<T> DoubleEndedIterator for IntoIter<T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.pop_back()
     }
 }
 
@@ -257,6 +305,28 @@ impl<T, const N: usize> From<[T; N]> for LinkedList<T> {
     }
 }
 
+impl<T> PartialEq for LinkedList<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().eq(other)
+    }
+}
+
+impl<T> Clone for LinkedList<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        let mut ll = Self::new();
+        for el in self {
+            ll.push_back(el.clone())
+        }
+        ll
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,10 +337,10 @@ mod tests {
         assert!(l.first().is_none());
 
         l.push_front(1);
-        assert_eq!(l.first(), Some(1));
+        assert_eq!(l.first(), Some(&1));
 
         l.push_front(2);
-        assert_eq!(l.first(), Some(2));
+        assert_eq!(l.first(), Some(&2));
     }
 
     #[test]
@@ -279,10 +349,10 @@ mod tests {
         assert!(l.last().is_none());
 
         l.push_back(1);
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.last(), Some(&1));
 
         l.push_back(2);
-        assert_eq!(l.last(), Some(2));
+        assert_eq!(l.last(), Some(&2));
     }
 
     #[test]
@@ -292,16 +362,16 @@ mod tests {
         assert!(l.last().is_none());
 
         l.push_back(1);
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&1));
 
         l.push_back(2);
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(2));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&2));
 
         l.push_back(3);
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(3));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&3));
     }
 
     #[test]
@@ -311,32 +381,29 @@ mod tests {
         assert!(l.last().is_none());
 
         l.push_front(1);
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&1));
 
         l.push_front(2);
-        assert_eq!(l.first(), Some(2));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&2));
+        assert_eq!(l.last(), Some(&1));
 
         l.push_front(3);
-        assert_eq!(l.first(), Some(3));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&3));
+        assert_eq!(l.last(), Some(&1));
     }
 
     #[test]
     fn test_pop_back() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
+        let mut l = LinkedList::from([1, 2, 3]);
 
         assert_eq!(l.pop_back(), Some(3));
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(2));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&2));
 
         assert_eq!(l.pop_back(), Some(2));
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&1));
 
         assert_eq!(l.pop_back(), Some(1));
         assert!(l.first().is_none());
@@ -345,70 +412,19 @@ mod tests {
 
     #[test]
     fn test_pop_front() {
-        let mut l = LinkedList::new();
-        l.push_front(1);
-        l.push_front(2);
-        l.push_front(3);
+        let mut l = LinkedList::from([3, 2, 1]);
 
         assert_eq!(l.pop_front(), Some(3));
-        assert_eq!(l.first(), Some(2));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&2));
+        assert_eq!(l.last(), Some(&1));
 
         assert_eq!(l.pop_front(), Some(2));
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(1));
+        assert_eq!(l.first(), Some(&1));
+        assert_eq!(l.last(), Some(&1));
 
         assert_eq!(l.pop_front(), Some(1));
         assert!(l.first().is_none());
         assert!(l.last().is_none());
-    }
-
-    #[test]
-    fn test_unlink() {
-        let mut l = LinkedList::new();
-        l.push_front(4);
-        let node_3 = l.push_front_impl(3);
-        let node_2 = l.push_front_impl(2);
-        l.push_front(1);
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(4));
-
-        l.unlink(node_2.upgrade().unwrap());
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(4));
-        assert_eq!(l.iter().nth(1), Some(3));
-        assert_eq!(l.iter().rev().nth(1), Some(3));
-
-        l.unlink(node_3.upgrade().unwrap());
-        assert_eq!(l.first(), Some(1));
-        assert_eq!(l.last(), Some(4));
-        assert_eq!(l.iter().nth(1), Some(4));
-        assert_eq!(l.iter().rev().nth(1), Some(1));
-    }
-
-    #[test]
-    fn test_node_weak_pointer() {
-        let mut l = LinkedList::new();
-        l.push_front(3);
-        let weak_node_2 = l.push_front_impl(2);
-        l.push_front(1);
-
-        let node_2 = weak_node_2.upgrade().unwrap();
-        l.unlink(node_2);
-        assert!(weak_node_2.upgrade().is_none());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_unlink_panic() {
-        let mut l = LinkedList::new();
-        l.push_front(3);
-        let weak_node_2 = l.push_front_impl(2);
-        l.push_front(1);
-
-        let node_2 = weak_node_2.upgrade().unwrap();
-        let _another_node_2_ref = node_2.clone();
-        l.unlink(node_2);
     }
 
     #[test]
@@ -429,28 +445,42 @@ mod tests {
         assert!(l.is_empty());
     }
 
-    // #[test]
-    // fn test_iter() {
-    //     let mut l = LinkedList::new();
-    //     l.push_back(1);
-    //     l.push_back(2);
-    //     l.push_back(3);
+    #[test]
+    fn test_iter() {
+        let l = LinkedList::from([1, 2, 3]);
+        let mut iter = l.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
 
-    //     let mut iter = l.iter();
-    //     assert_eq!(iter.next(), Some(1));
-    //     assert_eq!(iter.next(), Some(2));
-    //     assert_eq!(iter.next(), Some(3));
-    //     assert_eq!(iter.next(), None);
-    //     assert_eq!(iter.next(), None);
-    // }
+    #[test]
+    fn test_borrowed_into_iter() {
+        let l = LinkedList::from([1, 2, 3]);
+        let mut iter = (&l).into_iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iter_mut() {
+        let mut l = LinkedList::from([1, 2, 3]);
+        let mut iter = l.iter_mut();
+        assert_eq!(iter.next(), Some(&mut 1));
+        assert_eq!(iter.next(), Some(&mut 2));
+        assert_eq!(iter.next(), Some(&mut 3));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
 
     #[test]
     fn test_into_iter() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
-
+        let l = LinkedList::from([1, 2, 3]);
         let mut iter = l.into_iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(2));
@@ -461,11 +491,7 @@ mod tests {
 
     #[test]
     fn test_into_iter_for_loop() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
-
+        let l = LinkedList::from([1, 2, 3]);
         let mut expected = 1;
         for el in l {
             assert_eq!(el, expected);
@@ -474,12 +500,19 @@ mod tests {
     }
 
     #[test]
-    fn test_into_iter_rev() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
+    fn test_iter_rev() {
+        let l = LinkedList::from([1, 2, 3]);
+        let mut iter = l.iter().rev();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
 
+    #[test]
+    fn test_into_iter_rev() {
+        let l = LinkedList::from([1, 2, 3]);
         let mut iter = l.into_iter().rev();
         assert_eq!(iter.next(), Some(3));
         assert_eq!(iter.next(), Some(2));
@@ -489,15 +522,22 @@ mod tests {
     }
 
     #[test]
-    fn test_double_ended_iterator() {
-        let mut l = LinkedList::new();
-        l.push_back(1);
-        l.push_back(2);
-        l.push_back(3);
-        l.push_back(4);
-        l.push_back(5);
-        l.push_back(6);
+    fn test_iter_double_ended_iterator() {
+        let l = LinkedList::from_iter(1..=6);
+        let mut iter = l.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), Some(&6));
+        assert_eq!(iter.next_back(), Some(&5));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
 
+    #[test]
+    fn test_into_iter_double_ended_iterator() {
+        let l = LinkedList::from_iter(1..=6);
         let mut iter = l.into_iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next_back(), Some(6));
@@ -516,6 +556,7 @@ mod tests {
         assert_eq!(l.pop_front(), Some(1));
         assert_eq!(l.pop_front(), Some(2));
         assert_eq!(l.pop_front(), Some(3));
+        assert_eq!(l.pop_front(), None);
     }
 
     #[test]
@@ -525,6 +566,7 @@ mod tests {
         assert_eq!(l.pop_front(), Some(1));
         assert_eq!(l.pop_front(), Some(2));
         assert_eq!(l.pop_front(), Some(3));
+        assert_eq!(l.pop_front(), None);
     }
 
     #[test]
@@ -534,5 +576,43 @@ mod tests {
         assert_eq!(l.pop_front(), Some(1));
         assert_eq!(l.pop_front(), Some(2));
         assert_eq!(l.pop_front(), Some(3));
+        assert_eq!(l.pop_front(), None);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut l = LinkedList::from([1, 2, 3]);
+        assert_eq!(l.remove(0), Some(1));
+
+        let mut l = LinkedList::from([1, 2, 3]);
+        assert_eq!(l.remove(2), Some(3));
+
+        let mut l = LinkedList::from([1, 2, 3]);
+        assert_eq!(l.remove(3), None);
+
+        let mut l = LinkedList::from([1, 2, 3]);
+        assert_eq!(l.remove(1), Some(2));
+
+        let mut l = LinkedList::from([1, 2, 3, 4]);
+        assert_eq!(l.remove(2), Some(3));
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(LinkedList::<i32>::new(), LinkedList::<i32>::new());
+        assert_ne!(LinkedList::new(), LinkedList::from([1, 2, 3]));
+        assert_eq!(LinkedList::from([1, 2, 3]), LinkedList::from([1, 2, 3]));
+        assert_ne!(LinkedList::from([1, 2, 3]), LinkedList::from([1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn test_clone() {
+        let l: LinkedList<i32> = LinkedList::new();
+        let c = l.clone();
+        assert_eq!(l, c);
+
+        let l = LinkedList::from([1, 2, 3]);
+        let c = l.clone();
+        assert_eq!(l, c);
     }
 }
