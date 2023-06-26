@@ -11,7 +11,6 @@ pub struct LRUCache<K, V> {
 
 type NodeMap<K, V> = HashMap<K, WeakLink<Item<K, V>>>;
 
-#[derive(Clone)]
 struct Item<K, V> {
     key: K,
     value: V,
