@@ -1,4 +1,4 @@
-use std::collections::LinkedList;
+use crate::linked_list::LinkedList;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -105,7 +105,7 @@ where
         match &self.buckets[self.bucket_index(key)] {
             Some(ll) => {
                 for node in ll {
-                    if &node.key == key {
+                    if node.key == *key {
                         return Some(&node.value);
                     }
                 }
@@ -127,7 +127,7 @@ where
                             self.buckets[bucket_index] = None;
                         }
                         self.len -= 1;
-                        return Some(node.value);
+                        return node.map(|node| node.value);
                     }
                 }
                 None
@@ -181,7 +181,7 @@ where
 pub struct Iter<'a, K, V> {
     map: &'a HashMap<'a, K, V>,
     bucket_index: usize,
-    bucket_iter: Option<std::collections::linked_list::Iter<'a, Node<K, V>>>,
+    bucket_iter: Option<crate::linked_list::Iter<'a, Node<K, V>>>,
 }
 
 impl<'a, K, V> Iter<'a, K, V> {
@@ -226,7 +226,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
 pub struct IntoIter<'a, K, V> {
     map: HashMap<'a, K, V>,
     bucket_index: usize,
-    bucket_iter: Option<std::collections::linked_list::IntoIter<Node<K, V>>>,
+    bucket_iter: Option<crate::linked_list::IntoIter<Node<K, V>>>,
 }
 
 impl<'a, K, V> IntoIter<'a, K, V> {
