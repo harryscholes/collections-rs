@@ -140,28 +140,15 @@ impl<T> LinkedList<T> {
         } else if index == self.len() - 1 {
             self.pop_back()
         } else {
-            let mut curr = self.head;
-            for _ in 0..index {
-                curr = match curr {
-                    Some(curr) => unsafe { (*curr).next },
-                    None => None,
-                }
-            }
-            if let Some(curr) = curr {
-                unsafe {
-                    if let Some(prev) = (*curr).prev {
-                        (*prev).next = (*curr).next;
-                    }
-                    if let Some(next) = (*curr).next {
-                        (*next).prev = (*curr).prev;
-                    }
-                }
-            };
-            let el = curr
-                .take()
-                .map(|curr| unsafe { Box::from_raw(curr).element });
-            self.len -= 1;
-            el
+            let mut cursor = Cursor::new(self);
+            cursor.nth(index).map(|node| unsafe {
+                let prev = (*node).prev.unwrap();
+                (*prev).next = (*node).next;
+                let next = (*node).next.unwrap();
+                (*next).prev = (*node).prev;
+                self.len -= 1;
+                Box::from_raw(node).element
+            })
         }
     }
 }
@@ -197,7 +184,6 @@ impl<'a, T> Iterator for Iter<'a, T> {
                 self.head = &None;
                 self.tail = &None;
             }
-
             &(*head).element
         })
     }
@@ -212,7 +198,6 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
                 self.head = &None;
                 self.tail = &None;
             }
-
             &(*tail).element
         })
     }
@@ -252,8 +237,21 @@ impl<'a, T> Iterator for IterMut<'a, T> {
                 self.head = &None;
                 self.tail = &None;
             }
-
             &mut (*head).element
+        })
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.tail.map(|tail| unsafe {
+            if self.head != self.tail {
+                self.tail = &(*tail).prev;
+            } else {
+                self.head = &None;
+                self.tail = &None;
+            }
+            &mut (*tail).element
         })
     }
 }
@@ -324,6 +322,27 @@ where
             ll.push_back(el.clone())
         }
         ll
+    }
+}
+
+pub struct Cursor<'a, T> {
+    head: &'a Link<T>,
+}
+
+impl<'a, T> Cursor<'a, T> {
+    pub fn new(l: &'a LinkedList<T>) -> Self {
+        Cursor { head: &l.head }
+    }
+}
+
+impl<'a, T> Iterator for Cursor<'a, T> {
+    type Item = *mut Node<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.head.map(|head| {
+            self.head = unsafe { &(*head).next };
+            head
+        })
     }
 }
 
@@ -479,6 +498,17 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_mut_rev() {
+        let mut l = LinkedList::from([1, 2, 3]);
+        let mut iter = l.iter_mut().rev();
+        assert_eq!(iter.next(), Some(&mut 3));
+        assert_eq!(iter.next(), Some(&mut 2));
+        assert_eq!(iter.next(), Some(&mut 1));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
     fn test_into_iter() {
         let l = LinkedList::from([1, 2, 3]);
         let mut iter = l.into_iter();
@@ -614,5 +644,19 @@ mod tests {
         let l = LinkedList::from([1, 2, 3]);
         let c = l.clone();
         assert_eq!(l, c);
+    }
+
+    #[test]
+    fn test_cursor() {
+        let l = LinkedList::from([1, 2, 3]);
+        let mut cursor = Cursor::new(&l);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 1);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 2);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 3);
+        assert!(cursor.next().is_none());
+
+        let cursor = Cursor::new(&l);
+        cursor.for_each(|node| unsafe { (*node).element += 1 });
+        assert_eq!(l, LinkedList::from([2, 3, 4]));
     }
 }
