@@ -159,8 +159,8 @@ impl<T> LinkedList<T> {
         Cursor::new(self)
     }
 
-    fn cursor_mut(&mut self) -> Cursor<'_, T> {
-        Cursor::new(self)
+    fn cursor_mut(&mut self) -> CursorMut<'_, T> {
+        CursorMut::new(self)
     }
 }
 
@@ -227,6 +227,60 @@ impl<'a, T> DoubleEndedIterator for Cursor<'a, T> {
     }
 }
 
+struct CursorMut<'a, T> {
+    head: Link<T>,
+    tail: Link<T>,
+    marker: PhantomData<&'a mut T>,
+}
+
+impl<'a, T> CursorMut<'a, T> {
+    pub fn new(l: &mut LinkedList<T>) -> Self {
+        Self {
+            head: l.head,
+            tail: l.tail,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Iterator for CursorMut<'a, T> {
+    type Item = *mut Node<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.head {
+            Some(old_head) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_head = (*old_head).next;
+                    self.head = new_head;
+                }
+                Some(old_head)
+            },
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for CursorMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.tail {
+            Some(old_tail) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_tail = (*old_tail).prev;
+                    self.tail = new_tail;
+                }
+                Some(old_tail)
+            },
+            None => None,
+        }
+    }
+}
+
 pub struct Iter<'a, T>(Cursor<'a, T>);
 
 impl<'a, T> Iter<'a, T> {
@@ -258,7 +312,7 @@ impl<'a, T> IntoIterator for &'a LinkedList<T> {
     }
 }
 
-pub struct IterMut<'a, T>(Cursor<'a, T>);
+pub struct IterMut<'a, T>(CursorMut<'a, T>);
 
 impl<'a, T> IterMut<'a, T> {
     pub fn new(l: &'a mut LinkedList<T>) -> Self {
