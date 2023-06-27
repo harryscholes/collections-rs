@@ -8,6 +8,8 @@ pub struct LinkedList<T> {
     len: usize,
 }
 
+type Link<T> = Option<*mut Node<T>>;
+
 /// Space complexity: O(1)
 #[derive(Debug)]
 pub struct Node<T> {
@@ -15,8 +17,6 @@ pub struct Node<T> {
     next: Link<T>,
     prev: Link<T>,
 }
-
-type Link<T> = Option<*mut Node<T>>;
 
 impl<T> Node<T> {
     fn new(element: T) -> Self {
@@ -177,7 +177,7 @@ struct NodeIter<'a, T> {
 }
 
 impl<'a, T> NodeIter<'a, T> {
-    pub fn new(l: &LinkedList<T>) -> Self {
+    pub fn new(l: &'a LinkedList<T>) -> Self {
         Self {
             head: l.head,
             tail: l.tail,
@@ -190,37 +190,31 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
     type Item = *const Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.head {
-            Some(old_head) => unsafe {
-                if self.head == self.tail {
-                    self.head = None;
-                    self.tail = None;
-                } else {
-                    let new_head = (*old_head).next;
-                    self.head = new_head;
-                }
-                Some(old_head)
-            },
-            None => None,
-        }
+        self.head.map(|old_head| unsafe {
+            if self.head == self.tail {
+                self.head = None;
+                self.tail = None;
+            } else {
+                let new_head = (*old_head).next;
+                self.head = new_head;
+            }
+            old_head as *const Node<T>
+        })
     }
 }
 
 impl<'a, T> DoubleEndedIterator for NodeIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.tail {
-            Some(old_tail) => unsafe {
-                if self.head == self.tail {
-                    self.head = None;
-                    self.tail = None;
-                } else {
-                    let new_tail = (*old_tail).prev;
-                    self.tail = new_tail;
-                }
-                Some(old_tail)
-            },
-            None => None,
-        }
+        self.tail.map(|old_tail| unsafe {
+            if self.head == self.tail {
+                self.head = None;
+                self.tail = None;
+            } else {
+                let new_tail = (*old_tail).prev;
+                self.tail = new_tail;
+            }
+            old_tail as *const Node<T>
+        })
     }
 }
 
@@ -231,7 +225,7 @@ struct NodeIterMut<'a, T> {
 }
 
 impl<'a, T> NodeIterMut<'a, T> {
-    pub fn new(l: &mut LinkedList<T>) -> Self {
+    pub fn new(l: &'a mut LinkedList<T>) -> Self {
         Self {
             head: l.head,
             tail: l.tail,
@@ -244,37 +238,31 @@ impl<'a, T> Iterator for NodeIterMut<'a, T> {
     type Item = *mut Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.head {
-            Some(old_head) => unsafe {
-                if self.head == self.tail {
-                    self.head = None;
-                    self.tail = None;
-                } else {
-                    let new_head = (*old_head).next;
-                    self.head = new_head;
-                }
-                Some(old_head)
-            },
-            None => None,
-        }
+        self.head.map(|old_head| unsafe {
+            if self.head == self.tail {
+                self.head = None;
+                self.tail = None;
+            } else {
+                let new_head = (*old_head).next;
+                self.head = new_head;
+            }
+            old_head
+        })
     }
 }
 
 impl<'a, T> DoubleEndedIterator for NodeIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.tail {
-            Some(old_tail) => unsafe {
-                if self.head == self.tail {
-                    self.head = None;
-                    self.tail = None;
-                } else {
-                    let new_tail = (*old_tail).prev;
-                    self.tail = new_tail;
-                }
-                Some(old_tail)
-            },
-            None => None,
-        }
+        self.tail.map(|old_tail| unsafe {
+            if self.head == self.tail {
+                self.head = None;
+                self.tail = None;
+            } else {
+                let new_tail = (*old_tail).prev;
+                self.tail = new_tail;
+            }
+            old_tail
+        })
     }
 }
 
