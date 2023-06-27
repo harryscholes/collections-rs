@@ -1,7 +1,6 @@
-use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
-    hash::Hasher,
-};
+use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+
+use crate::hash_map::HashMap;
 
 type Digest = [u8; 8];
 

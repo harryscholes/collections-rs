@@ -26,8 +26,8 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn delete(&mut self, el: &T) {
-        self.0.delete(el);
+    pub fn remove(&mut self, el: &T) {
+        self.0.remove(el);
     }
 
     /// Time complexity: O(1)
@@ -66,7 +66,7 @@ where
     pub fn difference(&mut self, other: &HashSet<T>) {
         for el in other {
             if self.contains(el) {
-                self.delete(el);
+                self.remove(el);
             }
         }
     }
@@ -172,11 +172,11 @@ mod tests {
         assert!(hs.contains(&1));
         assert_eq!(hs.len(), 2);
 
-        hs.delete(&0);
+        hs.remove(&0);
         assert!(!hs.contains(&0));
         assert_eq!(hs.len(), 1);
 
-        hs.delete(&1);
+        hs.remove(&1);
         assert!(!hs.contains(&1));
         assert_eq!(hs.len(), 0);
         assert!(hs.is_empty());

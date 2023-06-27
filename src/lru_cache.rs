@@ -1,6 +1,7 @@
-use std::{cell::Ref, collections::HashMap, hash::Hash};
+use std::{cell::Ref, hash::Hash};
 
 use self::linked_list::{LinkedList, WeakLink};
+use crate::hash_map::HashMap;
 
 /// Space complexity: O(n)
 pub struct LRUCache<K, V> {

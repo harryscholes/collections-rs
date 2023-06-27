@@ -112,7 +112,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn delete(&mut self, key: &K) -> Option<V> {
+    pub fn remove(&mut self, key: &K) -> Option<V> {
         let bucket_index = self.bucket_index(key);
         match &mut self.buckets[bucket_index] {
             Some(ref mut ll) => {
@@ -348,21 +348,21 @@ mod tests {
     }
 
     #[test]
-    fn test_delete() {
+    fn test_remove() {
         let key_1 = 0;
         let value_1 = 1;
         let key_2 = 2;
         let value_2 = 3;
         let mut hm = HashMap::new();
-        assert!(hm.delete(&key_1).is_none());
+        assert!(hm.remove(&key_1).is_none());
         hm.insert(key_1, value_1);
         hm.insert(key_2, value_2);
-        assert_eq!(hm.delete(&key_1), Some(value_1));
+        assert_eq!(hm.remove(&key_1), Some(value_1));
         assert!(hm.get(&key_1).is_none());
-        assert!(hm.delete(&key_1).is_none());
-        assert_eq!(hm.delete(&key_2), Some(value_2));
+        assert!(hm.remove(&key_1).is_none());
+        assert_eq!(hm.remove(&key_2), Some(value_2));
         assert!(hm.get(&key_2).is_none());
-        assert!(hm.delete(&key_2).is_none());
+        assert!(hm.remove(&key_2).is_none());
         for b in hm.buckets {
             assert!(b.is_none());
         }
@@ -394,11 +394,11 @@ mod tests {
         vec.sort();
         assert_eq!(vec, vec![(&key_1, &new_value_1), (&key_2, &value_2),]);
 
-        hm.delete(&key_1);
+        hm.remove(&key_1);
         let vec = hm.iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![(&key_2, &value_2)]);
 
-        hm.delete(&key_2);
+        hm.remove(&key_2);
         let vec = hm.iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![]);
     }
@@ -448,11 +448,11 @@ mod tests {
         vec.sort();
         assert_eq!(vec, vec![(key_1, new_value_1), (key_2, value_2),]);
 
-        hm.delete(&key_1);
+        hm.remove(&key_1);
         let vec = hm.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![(key_2, value_2)]);
 
-        hm.delete(&key_2);
+        hm.remove(&key_2);
         let vec = hm.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![]);
     }
@@ -502,11 +502,11 @@ mod tests {
         vec.sort();
         assert_eq!(vec, vec![(&key_1, &new_value_1), (&key_2, &value_2),]);
 
-        hm.delete(&key_1);
+        hm.remove(&key_1);
         let vec = (&hm).into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![(&key_2, &value_2)]);
 
-        hm.delete(&key_2);
+        hm.remove(&key_2);
         let vec = (&hm).into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![]);
     }
@@ -576,12 +576,12 @@ mod tests {
         assert_eq!(hm.len(), 1);
         hm.insert(2, 2);
         assert_eq!(hm.len(), 2);
-        hm.delete(&2);
+        hm.remove(&2);
         assert_eq!(hm.len(), 1);
-        hm.delete(&0);
+        hm.remove(&0);
         assert_eq!(hm.len(), 0);
         assert!(hm.is_empty());
-        hm.delete(&0);
+        hm.remove(&0);
         assert_eq!(hm.len(), 0);
     }
 
@@ -593,7 +593,7 @@ mod tests {
         assert!(hm.contains_key(&0));
         hm.insert(0, 1);
         assert!(hm.contains_key(&0));
-        hm.delete(&0);
+        hm.remove(&0);
         assert!(!hm.contains_key(&0));
     }
 
@@ -615,7 +615,7 @@ mod tests {
         }
 
         for i in 0..=n {
-            assert_eq!(hm.delete(&i), Some(i));
+            assert_eq!(hm.remove(&i), Some(i));
 
             for j in 0..=i {
                 assert_eq!(hm.get(&j), None);
