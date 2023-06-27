@@ -207,19 +207,20 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     }
 }
 
-pub struct IntoIter<T> {
-    cb: CircularBuffer<T>,
-    forward_index: Option<usize>,
-    back_index: Option<usize>,
+impl<'a, T> IntoIterator for &'a CircularBuffer<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
 }
+
+pub struct IntoIter<T>(CircularBuffer<T>);
 
 impl<T> IntoIter<T> {
     fn new(cb: CircularBuffer<T>) -> IntoIter<T> {
-        IntoIter {
-            forward_index: Some(cb.start),
-            back_index: Some(cb.end),
-            cb,
-        }
+        Self(cb)
     }
 }
 
@@ -227,30 +228,13 @@ impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.forward_index {
-            Some(forward_index) => {
-                let el = self.cb.buf[forward_index].take();
-                self.forward_index = Some(self.cb.increment(forward_index));
-                trip_iteration!(self, forward_index, back_index);
-                el
-            }
-            None => None,
-        }
+        self.0.pop_front()
     }
 }
 
 impl<T> DoubleEndedIterator for IntoIter<T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.back_index {
-            Some(back_index) => {
-                let back_index = self.cb.decrement(back_index);
-                let el = self.cb.buf[back_index].take();
-                self.back_index = Some(back_index);
-                trip_iteration!(self, forward_index, back_index);
-                el
-            }
-            None => None,
-        }
+        self.0.pop_back()
     }
 }
 
@@ -260,15 +244,6 @@ impl<T> IntoIterator for CircularBuffer<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
-    }
-}
-
-impl<'a, T> IntoIterator for &'a CircularBuffer<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self)
     }
 }
 
