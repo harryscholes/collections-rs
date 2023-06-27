@@ -26,7 +26,7 @@ where
     K: Clone + Hash + Eq,
 {
     pub fn with_capacity(capacity: usize) -> Self {
-        LRUCache {
+        Self {
             list: LinkedList::new(),
             map: HashMap::with_capacity(capacity),
             capacity,
@@ -89,7 +89,6 @@ where
     }
 }
 
-#[allow(dead_code)]
 mod linked_list {
     use std::{
         cell::{Ref, RefCell},
@@ -97,7 +96,7 @@ mod linked_list {
     };
 
     pub struct Node<T> {
-        pub element: T,
+        element: T,
         next: Option<Link<T>>,
         prev: Option<Link<T>>,
     }
@@ -107,7 +106,7 @@ mod linked_list {
 
     impl<T> Node<T> {
         fn new(element: T) -> Self {
-            Node {
+            Self {
                 element,
                 next: None,
                 prev: None,
@@ -124,7 +123,7 @@ mod linked_list {
 
     impl<T> LinkedList<T> {
         pub fn new() -> Self {
-            LinkedList {
+            Self {
                 head: None,
                 tail: None,
                 len: 0,
@@ -200,6 +199,7 @@ mod linked_list {
         }
 
         /// Time complexity: O(1)
+        #[cfg(test)]
         pub fn last(&self) -> Option<Ref<T>> {
             self.tail
                 .as_ref()
@@ -209,10 +209,6 @@ mod linked_list {
         /// Time complexity: O(1)
         pub fn len(&self) -> usize {
             self.len
-        }
-
-        pub fn is_empty(&self) -> bool {
-            self.len == 0
         }
     }
 
@@ -360,7 +356,7 @@ mod linked_list {
         #[test]
         fn test_len() {
             let mut l = LinkedList::new();
-            assert!(l.is_empty());
+            assert_eq!(l.len(), 0);
 
             l.push_front(1);
             assert_eq!(l.len(), 1);
@@ -368,11 +364,11 @@ mod linked_list {
             l.push_front(2);
             assert_eq!(l.len(), 2);
 
-            l.pop_back();
+            l.pop_back().unwrap();
             assert_eq!(l.len(), 1);
 
-            l.pop_back();
-            assert!(l.is_empty());
+            l.pop_back().unwrap();
+            assert_eq!(l.len(), 0);
         }
     }
 }

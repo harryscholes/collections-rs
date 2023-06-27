@@ -6,8 +6,8 @@ pub struct Queue<T>(CircularBuffer<T>);
 
 impl<T> Queue<T> {
     /// Time complexity: O(1)
-    pub fn new() -> Queue<T> {
-        Queue(CircularBuffer::new(1))
+    pub fn new() -> Self {
+        Self(CircularBuffer::new(1))
     }
 
     /// Time complexity: amortised O(1), O(n) worst case
@@ -42,7 +42,7 @@ impl<T, const N: usize> From<[T; N]> for Queue<T> {
 }
 
 impl<T> FromIterator<T> for Queue<T> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Queue<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut q = Queue::new();
         for el in iter {
             q.enqueue(el);
@@ -55,7 +55,7 @@ pub struct Iter<'a, T>(circular_buffer::Iter<'a, T>);
 
 impl<'a, T> Iter<'a, T> {
     fn new(q: &'a Queue<T>) -> Self {
-        Iter(q.0.iter())
+        Self(q.0.iter())
     }
 }
 
@@ -79,8 +79,8 @@ impl<'a, T> IntoIterator for &'a Queue<T> {
 pub struct IntoIter<T>(circular_buffer::IntoIter<T>);
 
 impl<T> IntoIter<T> {
-    fn new(q: Queue<T>) -> IntoIter<T> {
-        IntoIter(q.0.into_iter())
+    fn new(q: Queue<T>) -> Self {
+        Self(q.0.into_iter())
     }
 }
 

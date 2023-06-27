@@ -6,8 +6,8 @@ pub struct Dequeue<T>(CircularBuffer<T>);
 
 impl<T> Dequeue<T> {
     /// Time complexity: O(1)
-    pub fn new() -> Dequeue<T> {
-        Dequeue(CircularBuffer::new(1))
+    pub fn new() -> Self {
+        Self(CircularBuffer::new(1))
     }
 
     /// Time complexity: amortised O(1), O(n) worst case
@@ -45,10 +45,8 @@ impl<T> Dequeue<T> {
     pub fn peek_front(&self) -> Option<&T> {
         self.0.first()
     }
-}
 
-impl<'a, T> Dequeue<T> {
-    pub fn iter(&'a self) -> Iter<'a, T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
 }
@@ -63,7 +61,7 @@ pub struct Iter<'a, T>(circular_buffer::Iter<'a, T>);
 
 impl<'a, T> Iter<'a, T> {
     fn new(q: &'a Dequeue<T>) -> Self {
-        Iter(q.0.iter())
+        Self(q.0.iter())
     }
 }
 
@@ -93,8 +91,8 @@ impl<'a, T> IntoIterator for &'a Dequeue<T> {
 pub struct IntoIter<T>(circular_buffer::IntoIter<T>);
 
 impl<T> IntoIter<T> {
-    fn new(q: Dequeue<T>) -> IntoIter<T> {
-        IntoIter(q.0.into_iter())
+    fn new(q: Dequeue<T>) -> Self {
+        Self(q.0.into_iter())
     }
 }
 

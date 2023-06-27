@@ -52,12 +52,12 @@ impl<T> PriorityQueue<T>
 where
     T: Ord,
 {
-    pub fn new() -> PriorityQueue<T> {
-        PriorityQueue::with_capacity(0)
+    pub fn new() -> Self {
+        Self::with_capacity(0)
     }
 
-    pub fn with_capacity(capacity: usize) -> PriorityQueue<T> {
-        PriorityQueue {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
             heap: MaxHeap::with_capacity(capacity),
             age: 0,
         }

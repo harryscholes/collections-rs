@@ -2,7 +2,6 @@ use crate::linked_list::LinkedList;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    marker::PhantomData,
 };
 
 const DEFAULT_CAPACITY: usize = 4;
@@ -10,10 +9,9 @@ const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
 #[derive(Debug, Clone, PartialEq)]
-pub struct HashMap<'a, K, V> {
+pub struct HashMap<K, V> {
     buckets: Vec<Option<Bucket<K, V>>>,
     len: usize,
-    phantom_data: PhantomData<&'a V>,
 }
 
 type Bucket<K, V> = LinkedList<Node<K, V>>;
@@ -24,7 +22,7 @@ struct Node<K, V> {
     value: V,
 }
 
-impl<'a, K, V> HashMap<'a, K, V>
+impl<K, V> HashMap<K, V>
 where
     K: PartialEq + Hash,
 {
@@ -38,7 +36,6 @@ where
         Self {
             buckets: (0..capacity).map(|_| None).collect(),
             len: 0,
-            phantom_data: PhantomData,
         }
     }
 
@@ -92,7 +89,6 @@ where
         let old_map = HashMap {
             buckets: old_buckets,
             len: 0,
-            phantom_data: PhantomData,
         };
         self.len = 0;
         for (key, value) in old_map {
@@ -101,7 +97,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn get(&'a self, key: &K) -> Option<&'a V> {
+    pub fn get(&self, key: &K) -> Option<&'_ V> {
         match &self.buckets[self.bucket_index(key)] {
             Some(ll) => {
                 for node in ll {
@@ -162,14 +158,14 @@ where
     }
 }
 
-impl<'a, K, V> HashMap<'a, K, V> {
+impl<K, V> HashMap<K, V> {
     /// Time complexity: O(n)
-    pub fn iter(&'a self) -> Iter<'a, K, V> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter::new(self)
     }
 }
 
-impl<'a, K, V> Default for HashMap<'a, K, V>
+impl<K, V> Default for HashMap<K, V>
 where
     K: PartialEq + Hash,
 {
@@ -179,7 +175,7 @@ where
 }
 
 pub struct Iter<'a, K, V> {
-    map: &'a HashMap<'a, K, V>,
+    map: &'a HashMap<K, V>,
     bucket_index: usize,
     bucket_iter: Option<crate::linked_list::Iter<'a, Node<K, V>>>,
 }
@@ -223,14 +219,14 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     }
 }
 
-pub struct IntoIter<'a, K, V> {
-    map: HashMap<'a, K, V>,
+pub struct IntoIter<K, V> {
+    map: HashMap<K, V>,
     bucket_index: usize,
     bucket_iter: Option<crate::linked_list::IntoIter<Node<K, V>>>,
 }
 
-impl<'a, K, V> IntoIter<'a, K, V> {
-    fn new(map: HashMap<'a, K, V>) -> Self {
+impl<K, V> IntoIter<K, V> {
+    fn new(map: HashMap<K, V>) -> Self {
         Self {
             map,
             bucket_index: 0,
@@ -239,7 +235,7 @@ impl<'a, K, V> IntoIter<'a, K, V> {
     }
 }
 
-impl<'a, K, V> Iterator for IntoIter<'a, K, V> {
+impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -268,16 +264,16 @@ impl<'a, K, V> Iterator for IntoIter<'a, K, V> {
     }
 }
 
-impl<'a, K, V> IntoIterator for HashMap<'a, K, V> {
+impl<K, V> IntoIterator for HashMap<K, V> {
     type Item = (K, V);
-    type IntoIter = IntoIter<'a, K, V>;
+    type IntoIter = IntoIter<K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
     }
 }
 
-impl<'a, K, V> IntoIterator for &'a HashMap<'a, K, V> {
+impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     type Item = (&'a K, &'a V);
 
     type IntoIter = Iter<'a, K, V>;
@@ -287,7 +283,7 @@ impl<'a, K, V> IntoIterator for &'a HashMap<'a, K, V> {
     }
 }
 
-impl<'a, K, V> FromIterator<(K, V)> for HashMap<'a, K, V>
+impl<K, V> FromIterator<(K, V)> for HashMap<K, V>
 where
     K: PartialEq + Hash,
 {
@@ -300,7 +296,7 @@ where
     }
 }
 
-impl<'a, K, V, const N: usize> From<[(K, V); N]> for HashMap<'a, K, V>
+impl<K, V, const N: usize> From<[(K, V); N]> for HashMap<K, V>
 where
     K: PartialEq + Hash,
 {

@@ -12,8 +12,8 @@ pub struct Graph<T> {
 }
 
 impl<T> Graph<T> {
-    pub fn new() -> Graph<T> {
-        Graph {
+    pub fn new() -> Self {
+        Self {
             edges: HashMap::new(),
         }
     }
@@ -130,7 +130,7 @@ where
     T: Eq + Hash,
 {
     pub fn new(graph: &'a Graph<T>, vertex: &T) -> Self {
-        NeighboursIterator(graph.edges.get(vertex).map(|neighbours| neighbours.iter()))
+        Self(graph.edges.get(vertex).map(|neighbours| neighbours.iter()))
     }
 }
 
@@ -155,7 +155,7 @@ where
     T: Eq + Hash,
 {
     pub fn new(graph: &'a Graph<T>) -> Self {
-        VerticesIterator(graph.edges.iter())
+        Self(graph.edges.iter())
     }
 }
 
@@ -182,7 +182,7 @@ where
     T: Eq + Hash,
 {
     pub fn new(graph: &'a Graph<T>) -> Self {
-        EdgesIterator {
+        Self {
             graph,
             vertices: VerticesIterator::new(graph),
             vertex: None,
@@ -224,7 +224,7 @@ where
     T: Hash + Eq + Copy,
 {
     pub fn new(graph: &'a Graph<T>, start: &'a T) -> Self {
-        BFSIterator {
+        Self {
             graph,
             queue: Queue::from([start]),
             visited: HashSet::from([start]),
@@ -269,7 +269,7 @@ where
     T: Hash + Eq + Copy,
 {
     pub fn new(graph: &'a Graph<T>, start: &'a T) -> Self {
-        DFSIterator {
+        Self {
             graph,
             stack: Stack::from([start]),
             visited: HashSet::from([start]),

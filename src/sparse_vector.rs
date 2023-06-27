@@ -12,7 +12,7 @@ where
     T: Default,
 {
     pub fn new(len: usize) -> Self {
-        SparseVector {
+        Self {
             data: HashMap::new(),
             len,
             default: T::default(),
@@ -25,7 +25,7 @@ where
     T: std::cmp::PartialEq,
 {
     pub fn with_default(len: usize, default: T) -> Self {
-        SparseVector {
+        Self {
             data: HashMap::new(),
             len,
             default,
@@ -86,8 +86,6 @@ where
     }
 }
 
-impl<T> SparseVector<T> where T: Clone {}
-
 pub struct Iter<'a, T> {
     sv: &'a SparseVector<T>,
     index: usize,
@@ -95,7 +93,7 @@ pub struct Iter<'a, T> {
 
 impl<'a, T> Iter<'a, T> {
     fn new(sv: &'a SparseVector<T>) -> Self {
-        Iter { sv, index: 0 }
+        Self { sv, index: 0 }
     }
 }
 
@@ -135,7 +133,7 @@ pub struct IntoIter<T> {
 
 impl<T> IntoIter<T> {
     fn new(sv: SparseVector<T>) -> Self {
-        IntoIter { sv, index: 0 }
+        Self { sv, index: 0 }
     }
 }
 

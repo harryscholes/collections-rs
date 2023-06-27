@@ -7,12 +7,12 @@ pub struct CircularBuffer<T> {
 }
 
 impl<T> CircularBuffer<T> {
-    pub fn new(capacity: usize) -> CircularBuffer<T> {
+    pub fn new(capacity: usize) -> Self {
         Self::from_vec((0..capacity).map(|_| None).collect())
     }
 
-    fn from_vec(buf: Vec<Option<T>>) -> CircularBuffer<T> {
-        CircularBuffer {
+    fn from_vec(buf: Vec<Option<T>>) -> Self {
+        Self {
             start: 0,
             end: 0,
             buf,
@@ -144,9 +144,9 @@ fn sub_mod(x: usize, y: usize, modulus: usize) -> usize {
 }
 
 impl<T> FromIterator<T> for CircularBuffer<T> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> CircularBuffer<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let buf = iter.into_iter().map(|el| Some(el)).collect();
-        CircularBuffer::from_vec(buf)
+        Self::from_vec(buf)
     }
 }
 
@@ -167,8 +167,8 @@ pub struct Iter<'a, T> {
 }
 
 impl<'a, T> Iter<'a, T> {
-    fn new(cb: &'a CircularBuffer<T>) -> Iter<'a, T> {
-        Iter {
+    fn new(cb: &'a CircularBuffer<T>) -> Self {
+        Self {
             forward_index: Some(cb.start),
             back_index: Some(cb.end),
             cb,
@@ -219,7 +219,7 @@ impl<'a, T> IntoIterator for &'a CircularBuffer<T> {
 pub struct IntoIter<T>(CircularBuffer<T>);
 
 impl<T> IntoIter<T> {
-    fn new(cb: CircularBuffer<T>) -> IntoIter<T> {
+    fn new(cb: CircularBuffer<T>) -> Self {
         Self(cb)
     }
 }

@@ -4,9 +4,9 @@ use crate::hash_map::{self, HashMap};
 
 /// Space complexity: O(n)
 #[derive(Debug, PartialEq)]
-pub struct HashSet<'a, T>(HashMap<'a, T, ()>);
+pub struct HashSet<T>(HashMap<T, ()>);
 
-impl<'a, T> HashSet<'a, T>
+impl<T> HashSet<T>
 where
     T: Hash + PartialEq,
 {
@@ -72,14 +72,14 @@ where
     }
 }
 
-impl<'a, T> HashSet<'a, T> {
+impl<T> HashSet<T> {
     /// Time complexity: O(n)
-    pub fn iter(&'a self) -> Iter<'a, T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter(self.0.iter())
     }
 }
 
-impl<'a, T> Default for HashSet<'a, T>
+impl<T> Default for HashSet<T>
 where
     T: PartialEq + Hash,
 {
@@ -98,9 +98,9 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-pub struct IntoIter<'a, T>(hash_map::IntoIter<'a, T, ()>);
+pub struct IntoIter<T>(hash_map::IntoIter<T, ()>);
 
-impl<'a, T> Iterator for IntoIter<'a, T> {
+impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -108,17 +108,17 @@ impl<'a, T> Iterator for IntoIter<'a, T> {
     }
 }
 
-impl<'a, T> IntoIterator for HashSet<'a, T> {
+impl<T> IntoIterator for HashSet<T> {
     type Item = T;
 
-    type IntoIter = IntoIter<'a, T>;
+    type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(self.0.into_iter())
     }
 }
 
-impl<'a, T: 'a> IntoIterator for &'a HashSet<'a, T> {
+impl<'a, T> IntoIterator for &'a HashSet<T> {
     type Item = &'a T;
 
     type IntoIter = Iter<'a, T>;
@@ -128,7 +128,7 @@ impl<'a, T: 'a> IntoIterator for &'a HashSet<'a, T> {
     }
 }
 
-impl<'a, T> FromIterator<T> for HashSet<'a, T>
+impl<T> FromIterator<T> for HashSet<T>
 where
     T: Hash + PartialEq,
 {
@@ -141,7 +141,7 @@ where
     }
 }
 
-impl<'a, T, const N: usize> From<[T; N]> for HashSet<'a, T>
+impl<T, const N: usize> From<[T; N]> for HashSet<T>
 where
     T: Hash + PartialEq,
 {

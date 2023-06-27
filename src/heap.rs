@@ -23,12 +23,12 @@ impl<T> MaxHeap<T>
 where
     T: Ord,
 {
-    pub fn new() -> MaxHeap<T> {
-        MaxHeap::with_capacity(0)
+    pub fn new() -> Self {
+        Self::with_capacity(0)
     }
 
-    pub fn with_capacity(capacity: usize) -> MaxHeap<T> {
-        MaxHeap(Vec::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
     }
 
     /// Time complexity: O(log(n))
@@ -184,12 +184,12 @@ impl<T> MinHeap<T>
 where
     T: Ord,
 {
-    pub fn new() -> MinHeap<T> {
-        MinHeap::with_capacity(0)
+    pub fn new() -> Self {
+        Self::with_capacity(0)
     }
 
-    pub fn with_capacity(capacity: usize) -> MinHeap<T> {
-        MinHeap(MaxHeap::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(MaxHeap::with_capacity(capacity))
     }
 }
 

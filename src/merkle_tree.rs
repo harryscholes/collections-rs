@@ -15,18 +15,18 @@ pub struct MerkleTree {
 }
 
 impl MerkleTree {
-    pub fn new(height: usize) -> MerkleTree {
-        MerkleTree::with_default_leaf(DEFAULT_LEAF, height)
+    pub fn new(height: usize) -> Self {
+        Self::with_default_leaf(DEFAULT_LEAF, height)
     }
 
-    pub fn with_default_leaf(default_leaf: Digest, height: usize) -> MerkleTree {
+    pub fn with_default_leaf(default_leaf: Digest, height: usize) -> Self {
         let default_nodes = default_nodes(default_leaf, height);
         let default_root = default_nodes[height];
 
         let mut values = HashMap::new();
         values.insert(1, default_root);
 
-        MerkleTree {
+        Self {
             height,
             values,
             default_nodes,

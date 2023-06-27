@@ -7,8 +7,8 @@ use crate::circular_buffer::{self, CircularBuffer};
 pub struct Stack<T>(CircularBuffer<T>);
 
 impl<T> Stack<T> {
-    pub fn new() -> Stack<T> {
-        Stack(CircularBuffer::new(1))
+    pub fn new() -> Self {
+        Self(CircularBuffer::new(1))
     }
 
     /// Time complexity: amortised O(1), O(n) worst case
@@ -56,7 +56,7 @@ pub struct Iter<'a, T>(Rev<circular_buffer::Iter<'a, T>>);
 
 impl<'a, T> Iter<'a, T> {
     fn new(s: &'a Stack<T>) -> Self {
-        Iter(s.0.iter().rev())
+        Self(s.0.iter().rev())
     }
 }
 
@@ -80,8 +80,8 @@ impl<'a, T> IntoIterator for &'a Stack<T> {
 pub struct IntoIter<T>(Rev<circular_buffer::IntoIter<T>>);
 
 impl<T> IntoIter<T> {
-    fn new(s: Stack<T>) -> IntoIter<T> {
-        IntoIter(s.0.into_iter().rev())
+    fn new(s: Stack<T>) -> Self {
+        Self(s.0.into_iter().rev())
     }
 }
 
