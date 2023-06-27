@@ -3,6 +3,7 @@
 Rust data structures, methods and traits:
 
 - `CircularBuffer<T>`
+- `Dequeue<T>`
 - `Graph<T>`
 - `HashMap<K, V>`
 - `HashSet<T>`
@@ -11,7 +12,7 @@ Rust data structures, methods and traits:
 - `MerkleTree`
 - `MaxHeap<T>`
 - `MinHeap<T>`
-- `Queue<T>`
 - `PriorityQueue<T>`
+- `Queue<T>`
 - `SparseVector<T>`
 - `Stack<T>`
