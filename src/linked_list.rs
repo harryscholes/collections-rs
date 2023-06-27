@@ -162,8 +162,8 @@ impl<T> Default for LinkedList<T> {
 }
 
 pub struct Iter<'a, T> {
-    head: Option<*mut Node<T>>,
-    tail: Option<*mut Node<T>>,
+    head: Link<T>,
+    tail: Link<T>,
     marker: PhantomData<&'a T>,
 }
 
@@ -221,6 +221,60 @@ impl<'a, T> IntoIterator for &'a LinkedList<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         Iter::new(self)
+    }
+}
+
+pub struct Cursor<'a, T> {
+    head: Link<T>,
+    tail: Link<T>,
+    marker: PhantomData<&'a T>,
+}
+
+impl<'a, T> Cursor<'a, T> {
+    pub fn new(l: &'a LinkedList<T>) -> Self {
+        Cursor {
+            head: l.head,
+            tail: l.tail,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Iterator for Cursor<'a, T> {
+    type Item = *mut Node<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.head {
+            Some(old_head) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_head = (*old_head).next;
+                    self.head = new_head;
+                }
+                Some(old_head)
+            },
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Cursor<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.tail {
+            Some(old_tail) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_tail = (*old_tail).prev;
+                    self.tail = new_tail;
+                }
+                Some(old_tail)
+            },
+            None => None,
+        }
     }
 }
 
@@ -337,27 +391,6 @@ where
             ll.push_back(el.clone())
         }
         ll
-    }
-}
-
-pub struct Cursor<'a, T> {
-    head: &'a Link<T>,
-}
-
-impl<'a, T> Cursor<'a, T> {
-    pub fn new(l: &'a LinkedList<T>) -> Self {
-        Cursor { head: &l.head }
-    }
-}
-
-impl<'a, T> Iterator for Cursor<'a, T> {
-    type Item = *mut Node<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.head.map(|head| {
-            self.head = unsafe { &(*head).next };
-            head
-        })
     }
 }
 
@@ -507,6 +540,28 @@ mod tests {
         assert_eq!(iter.next(), Some(&3));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_cursor_double_ended_iterator() {
+        let l = LinkedList::from_iter(1..=6);
+        let mut cursor = Cursor::new(&l);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 1);
+        assert_eq!(unsafe { (*cursor.next_back().unwrap()).element }, 6);
+        assert_eq!(unsafe { (*cursor.next_back().unwrap()).element }, 5);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 2);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 3);
+        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 4);
+        assert_eq!(cursor.next(), None);
+        assert_eq!(cursor.next_back(), None);
+    }
+
+    #[test]
+    fn test_cursor_iter_mut() {
+        let l = LinkedList::from([1, 2, 3]);
+        let cursor = Cursor::new(&l);
+        cursor.for_each(|node| unsafe { (*node).element += 1 });
+        assert_eq!(l, LinkedList::from([2, 3, 4]));
     }
 
     #[test]
@@ -675,19 +730,5 @@ mod tests {
         let l = LinkedList::from([1, 2, 3]);
         let c = l.clone();
         assert_eq!(l, c);
-    }
-
-    #[test]
-    fn test_cursor() {
-        let l = LinkedList::from([1, 2, 3]);
-        let mut cursor = Cursor::new(&l);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 1);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 2);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 3);
-        assert!(cursor.next().is_none());
-
-        let cursor = Cursor::new(&l);
-        cursor.for_each(|node| unsafe { (*node).element += 1 });
-        assert_eq!(l, LinkedList::from([2, 3, 4]));
     }
 }
