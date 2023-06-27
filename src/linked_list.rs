@@ -142,7 +142,7 @@ impl<T> LinkedList<T> {
         } else if index == self.len() - 1 {
             self.pop_back()
         } else {
-            self.cursor_mut().nth(index).map(|node| unsafe {
+            self.node_iter_mut().nth(index).map(|node| unsafe {
                 if let Some(prev) = (*node).prev {
                     (*prev).next = (*node).next;
                 }
@@ -155,12 +155,12 @@ impl<T> LinkedList<T> {
         }
     }
 
-    fn cursor(&self) -> Cursor<'_, T> {
-        Cursor::new(self)
+    fn node_iter(&self) -> NodeIter<'_, T> {
+        NodeIter::new(self)
     }
 
-    fn cursor_mut(&mut self) -> CursorMut<'_, T> {
-        CursorMut::new(self)
+    fn node_iter_mut(&mut self) -> NodeIterMut<'_, T> {
+        NodeIterMut::new(self)
     }
 }
 
@@ -170,16 +170,13 @@ impl<T> Default for LinkedList<T> {
     }
 }
 
-/// A private `Cursor` type for iteration over `Node`s in a `LinkedList`.
-/// Note that a `Cursor` is constructed using immutable borrows of `LinkedList`s,
-/// so that the `Iter` and `IterMut` API can be built using this type.
-struct Cursor<'a, T> {
+struct NodeIter<'a, T> {
     head: Link<T>,
     tail: Link<T>,
     marker: PhantomData<&'a T>,
 }
 
-impl<'a, T> Cursor<'a, T> {
+impl<'a, T> NodeIter<'a, T> {
     pub fn new(l: &LinkedList<T>) -> Self {
         Self {
             head: l.head,
@@ -189,8 +186,8 @@ impl<'a, T> Cursor<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for Cursor<'a, T> {
-    type Item = *mut Node<T>;
+impl<'a, T> Iterator for NodeIter<'a, T> {
+    type Item = *const Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.head {
@@ -209,7 +206,7 @@ impl<'a, T> Iterator for Cursor<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for Cursor<'a, T> {
+impl<'a, T> DoubleEndedIterator for NodeIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.tail {
             Some(old_tail) => unsafe {
@@ -227,13 +224,13 @@ impl<'a, T> DoubleEndedIterator for Cursor<'a, T> {
     }
 }
 
-struct CursorMut<'a, T> {
+struct NodeIterMut<'a, T> {
     head: Link<T>,
     tail: Link<T>,
     marker: PhantomData<&'a mut T>,
 }
 
-impl<'a, T> CursorMut<'a, T> {
+impl<'a, T> NodeIterMut<'a, T> {
     pub fn new(l: &mut LinkedList<T>) -> Self {
         Self {
             head: l.head,
@@ -243,7 +240,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for CursorMut<'a, T> {
+impl<'a, T> Iterator for NodeIterMut<'a, T> {
     type Item = *mut Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -263,7 +260,7 @@ impl<'a, T> Iterator for CursorMut<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for CursorMut<'a, T> {
+impl<'a, T> DoubleEndedIterator for NodeIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.tail {
             Some(old_tail) => unsafe {
@@ -281,11 +278,11 @@ impl<'a, T> DoubleEndedIterator for CursorMut<'a, T> {
     }
 }
 
-pub struct Iter<'a, T>(Cursor<'a, T>);
+pub struct Iter<'a, T>(NodeIter<'a, T>);
 
 impl<'a, T> Iter<'a, T> {
     pub fn new(l: &'a LinkedList<T>) -> Self {
-        Self(l.cursor())
+        Self(l.node_iter())
     }
 }
 
@@ -312,11 +309,11 @@ impl<'a, T> IntoIterator for &'a LinkedList<T> {
     }
 }
 
-pub struct IterMut<'a, T>(CursorMut<'a, T>);
+pub struct IterMut<'a, T>(NodeIterMut<'a, T>);
 
 impl<'a, T> IterMut<'a, T> {
     pub fn new(l: &'a mut LinkedList<T>) -> Self {
-        Self(l.cursor_mut())
+        Self(l.node_iter_mut())
     }
 }
 
@@ -554,29 +551,24 @@ mod tests {
     }
 
     #[test]
-    fn test_cursor_double_ended_iterator() {
+    fn test_node_iter_double_ended_iterator() {
         let l = LinkedList::from_iter(1..=6);
-        let mut cursor = l.cursor();
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 1);
-        assert_eq!(unsafe { (*cursor.next_back().unwrap()).element }, 6);
-        assert_eq!(unsafe { (*cursor.next_back().unwrap()).element }, 5);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 2);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 3);
-        assert_eq!(unsafe { (*cursor.next().unwrap()).element }, 4);
-        assert_eq!(cursor.next(), None);
-        assert_eq!(cursor.next_back(), None);
+        let mut iter = l.node_iter();
+        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 1);
+        assert_eq!(unsafe { (*iter.next_back().unwrap()).element }, 6);
+        assert_eq!(unsafe { (*iter.next_back().unwrap()).element }, 5);
+        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 2);
+        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 3);
+        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 4);
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
     }
 
     #[test]
-    fn test_cursor_iter_mut() {
+    fn test_node_iter_mut() {
         let mut l = LinkedList::from([1, 2, 3]);
-        let cursor = l.cursor_mut();
-        cursor.for_each(|node| unsafe { (*node).element += 1 });
-        assert_eq!(l, LinkedList::from([2, 3, 4]));
-
-        let mut l = LinkedList::from([1, 2, 3]);
-        let cursor = l.cursor_mut();
-        cursor.for_each(|node| unsafe { (*node).element += 1 });
+        l.node_iter_mut()
+            .for_each(|node| unsafe { (*node).element += 1 });
         assert_eq!(l, LinkedList::from([2, 3, 4]));
     }
 
