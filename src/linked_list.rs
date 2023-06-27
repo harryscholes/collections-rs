@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 /// Space complexity: O(n)
 #[derive(Debug)]
 pub struct LinkedList<T> {
@@ -160,15 +162,17 @@ impl<T> Default for LinkedList<T> {
 }
 
 pub struct Iter<'a, T> {
-    head: &'a Link<T>,
-    tail: &'a Link<T>,
+    head: Option<*mut Node<T>>,
+    tail: Option<*mut Node<T>>,
+    marker: PhantomData<&'a T>,
 }
 
 impl<'a, T> Iter<'a, T> {
     pub fn new(l: &'a LinkedList<T>) -> Self {
         Iter {
-            head: &l.head,
-            tail: &l.tail,
+            head: l.head,
+            tail: l.tail,
+            marker: PhantomData,
         }
     }
 }
@@ -177,29 +181,37 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.head.map(|head| unsafe {
-            if self.head != self.tail {
-                self.head = &(*head).next;
-            } else {
-                self.head = &None;
-                self.tail = &None;
-            }
-            &(*head).element
-        })
+        match self.head {
+            Some(old_head) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_head = (*old_head).next;
+                    self.head = new_head;
+                }
+                Some(&(*old_head).element)
+            },
+            None => None,
+        }
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.tail.map(|tail| unsafe {
-            if self.head != self.tail {
-                self.tail = &(*tail).prev;
-            } else {
-                self.head = &None;
-                self.tail = &None;
-            }
-            &(*tail).element
-        })
+        match self.tail {
+            Some(old_tail) => unsafe {
+                if self.head == self.tail {
+                    self.head = None;
+                    self.tail = None;
+                } else {
+                    let new_tail = (*old_tail).prev;
+                    self.tail = new_tail;
+                }
+                Some(&(*old_tail).element)
+            },
+            None => None,
+        }
     }
 }
 
@@ -213,15 +225,17 @@ impl<'a, T> IntoIterator for &'a LinkedList<T> {
 }
 
 pub struct IterMut<'a, T> {
-    head: &'a Link<T>,
-    tail: &'a Link<T>,
+    head: Option<*mut Node<T>>,
+    tail: Option<*mut Node<T>>,
+    marker: PhantomData<&'a mut T>,
 }
 
 impl<'a, T> IterMut<'a, T> {
     pub fn new(l: &'a mut LinkedList<T>) -> Self {
-        IterMut {
-            head: &l.head,
-            tail: &l.tail,
+        Self {
+            head: l.head,
+            tail: l.tail,
+            marker: PhantomData,
         }
     }
 }
@@ -230,15 +244,16 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.head.map(|head| unsafe {
-            if self.head != self.tail {
-                self.head = &(*head).next;
-            } else {
-                self.head = &None;
-                self.tail = &None;
-            }
-            &mut (*head).element
-        })
+        match self.head {
+            Some(head) => unsafe {
+                self.head = (*head).next;
+                if self.head.is_none() {
+                    self.tail = None;
+                }
+                Some(&mut (*head).element)
+            },
+            None => None,
+        }
     }
 }
 
@@ -246,10 +261,10 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.tail.map(|tail| unsafe {
             if self.head != self.tail {
-                self.tail = &(*tail).prev;
+                self.tail = (*tail).prev;
             } else {
-                self.head = &None;
-                self.tail = &None;
+                self.head = None;
+                self.tail = None;
             }
             &mut (*tail).element
         })
