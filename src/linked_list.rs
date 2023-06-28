@@ -133,7 +133,7 @@ impl<T> LinkedList<T> {
             } else if index == self.len() - 1 {
                 self.pop_back()
             } else {
-                let node = self.node_iter_mut().nth(index).map(|node| {
+                let el = self.node_iter().nth(index).map(|node| {
                     if let Some(mut prev) = node.prev {
                         prev.as_mut().next = node.next;
                     }
@@ -143,13 +143,13 @@ impl<T> LinkedList<T> {
                     // Hack to get hold of `Node<T>`
                     let ptr: NonNull<Node<_>> = node.into();
                     let node: Node<_> = ptr.into();
-                    node
+                    node.element
                 });
                 // Hack to get around the borrow checeker
-                if node.is_some() {
+                if el.is_some() {
                     self.len -= 1;
                 }
-                node.map(|node| node.element)
+                el
             }
         }
     }
