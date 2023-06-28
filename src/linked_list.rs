@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ptr::NonNull};
 
 /// Space complexity: O(n)
 #[derive(Debug)]
@@ -8,10 +8,10 @@ pub struct LinkedList<T> {
     len: usize,
 }
 
-type Link<T> = Option<*mut Node<T>>;
+type Link<T> = Option<NonNull<Node<T>>>;
 
 /// Space complexity: O(1)
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Node<T> {
     element: T,
     next: Link<T>,
@@ -28,6 +28,18 @@ impl<T> Node<T> {
     }
 }
 
+impl<T> From<Node<T>> for NonNull<Node<T>> {
+    fn from(node: Node<T>) -> Self {
+        unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(node))) }
+    }
+}
+
+impl<T> From<NonNull<Self>> for Node<T> {
+    fn from(ptr: NonNull<Self>) -> Self {
+        unsafe { *Box::from_raw(ptr.as_ptr()) }
+    }
+}
+
 impl<T> LinkedList<T> {
     pub fn new() -> Self {
         Self {
@@ -39,68 +51,107 @@ impl<T> LinkedList<T> {
 
     /// Time complexity: O(1)
     pub fn push_back(&mut self, elt: T) {
-        let new_tail = Box::into_raw(Box::new(Node::new(elt)));
-        match self.tail {
-            Some(old_tail) => unsafe {
-                (*old_tail).next = Some(new_tail);
-                (*new_tail).prev = Some(old_tail);
-            },
-            None => self.head = Some(new_tail),
+        unsafe {
+            let mut new_tail = Node::new(elt).into();
+            match self.tail {
+                Some(mut old_tail) => {
+                    old_tail.as_mut().next = Some(new_tail);
+                    new_tail.as_mut().prev = Some(old_tail);
+                }
+                None => self.head = Some(new_tail),
+            }
+            self.tail = Some(new_tail);
+            self.len += 1;
         }
-        self.tail = Some(new_tail);
-        self.len += 1;
     }
 
     /// Time complexity: O(1)
     pub fn push_front(&mut self, elt: T) {
-        let new_head = Box::into_raw(Box::new(Node::new(elt)));
-        match self.head {
-            Some(old_head) => unsafe {
-                (*old_head).prev = Some(new_head);
-                (*new_head).next = Some(old_head);
-            },
-            None => self.tail = Some(new_head),
+        unsafe {
+            let mut new_head = Node::new(elt).into();
+            match self.head {
+                Some(mut old_head) => {
+                    old_head.as_mut().prev = Some(new_head);
+                    new_head.as_mut().next = Some(old_head);
+                }
+                None => self.tail = Some(new_head),
+            }
+            self.head = Some(new_head);
+            self.len += 1;
         }
-        self.head = Some(new_head);
-        self.len += 1;
     }
 
     /// Time complexity: O(1)
     pub fn pop_back(&mut self) -> Option<T> {
-        self.tail.map(|old_tail| unsafe {
-            match (*old_tail).prev {
-                Some(new_tail) => {
-                    self.tail = Some(new_tail);
-                    (*new_tail).next = None;
+        unsafe {
+            self.tail.map(|old_tail| {
+                let old_tail: Node<_> = old_tail.into();
+                match old_tail.prev {
+                    Some(mut new_tail) => {
+                        self.tail = Some(new_tail);
+                        new_tail.as_mut().next = None;
+                    }
+                    None => {
+                        self.head = None;
+                        self.tail = None;
+                    }
                 }
-                None => {
-                    self.head = None;
-                    self.tail = None;
-                }
-            }
-            let el = Box::from_raw(old_tail).element;
-            self.len -= 1;
-            el
-        })
+                self.len -= 1;
+                old_tail.element
+            })
+        }
     }
 
     /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
-        self.head.map(|old_head| unsafe {
-            match (*old_head).next {
-                Some(new_head) => {
-                    self.head = Some(new_head);
-                    (*new_head).prev = None;
+        unsafe {
+            self.head.map(|old_head| {
+                let old_head: Node<_> = old_head.into();
+                match old_head.next {
+                    Some(mut new_head) => {
+                        self.head = Some(new_head);
+                        new_head.as_mut().prev = None;
+                    }
+                    None => {
+                        self.head = None;
+                        self.tail = None;
+                    }
                 }
-                None => {
-                    self.head = None;
-                    self.tail = None;
+                self.len -= 1;
+                old_head.element
+            })
+        }
+    }
+
+    /// Time complexity: O(n)
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        unsafe {
+            if index >= self.len() || self.is_empty() {
+                None
+            } else if index == 0 {
+                self.pop_front()
+            } else if index == self.len() - 1 {
+                self.pop_back()
+            } else {
+                let mut node = self.head;
+                for _ in 0..index {
+                    if let Some(_node) = node {
+                        node = _node.as_ref().next;
+                    }
                 }
+                node.map(|node| {
+                    let node: Node<_> = node.into();
+                    if let Some(mut prev) = node.prev {
+                        prev.as_mut().next = node.next;
+                    }
+                    if let Some(mut next) = node.next {
+                        next.as_mut().prev = node.prev;
+                    }
+                    self.len -= 1;
+                    node.element
+                })
             }
-            let el = Box::from_raw(old_head).element;
-            self.len -= 1;
-            el
-        })
+        }
     }
 
     /// Time complexity: O(1)
@@ -115,12 +166,12 @@ impl<T> LinkedList<T> {
 
     /// Time complexity: O(1)
     pub fn first(&self) -> Option<&T> {
-        self.head.map(|head| unsafe { &(*head).element })
+        self.head.map(|head| unsafe { &head.as_ref().element })
     }
 
     /// Time complexity: O(1)
     pub fn last(&self) -> Option<&T> {
-        self.tail.map(|tail| unsafe { &(*tail).element })
+        self.tail.map(|tail| unsafe { &tail.as_ref().element })
     }
 
     /// Time complexity: O(n)
@@ -134,31 +185,11 @@ impl<T> LinkedList<T> {
     }
 
     /// Time complexity: O(n)
-    pub fn remove(&mut self, index: usize) -> Option<T> {
-        if index >= self.len() || self.is_empty() {
-            None
-        } else if index == 0 {
-            self.pop_front()
-        } else if index == self.len() - 1 {
-            self.pop_back()
-        } else {
-            self.node_iter_mut().nth(index).map(|node| unsafe {
-                if let Some(prev) = (*node).prev {
-                    (*prev).next = (*node).next;
-                }
-                if let Some(next) = (*node).next {
-                    (*next).prev = (*node).prev;
-                }
-                self.len -= 1;
-                Box::from_raw(node).element
-            })
-        }
-    }
-
     fn node_iter(&self) -> NodeIter<'_, T> {
         NodeIter::new(self)
     }
 
+    /// Time complexity: O(n)
     fn node_iter_mut(&mut self) -> NodeIterMut<'_, T> {
         NodeIterMut::new(self)
     }
@@ -187,7 +218,7 @@ impl<'a, T> NodeIter<'a, T> {
 }
 
 impl<'a, T> Iterator for NodeIter<'a, T> {
-    type Item = *const Node<T>;
+    type Item = &'a Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.head.map(|old_head| unsafe {
@@ -195,10 +226,10 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
                 self.head = None;
                 self.tail = None;
             } else {
-                let new_head = (*old_head).next;
+                let new_head = old_head.as_ref().next;
                 self.head = new_head;
             }
-            old_head.cast_const()
+            old_head.as_ref()
         })
     }
 }
@@ -210,10 +241,10 @@ impl<'a, T> DoubleEndedIterator for NodeIter<'a, T> {
                 self.head = None;
                 self.tail = None;
             } else {
-                let new_tail = (*old_tail).prev;
+                let new_tail = old_tail.as_ref().prev;
                 self.tail = new_tail;
             }
-            old_tail.cast_const()
+            old_tail.as_ref()
         })
     }
 }
@@ -235,33 +266,33 @@ impl<'a, T> NodeIterMut<'a, T> {
 }
 
 impl<'a, T> Iterator for NodeIterMut<'a, T> {
-    type Item = *mut Node<T>;
+    type Item = &'a mut Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.head.map(|old_head| unsafe {
+        self.head.map(|mut old_head| unsafe {
             if self.head == self.tail {
                 self.head = None;
                 self.tail = None;
             } else {
-                let new_head = (*old_head).next;
+                let new_head = old_head.as_ref().next;
                 self.head = new_head;
             }
-            old_head
+            old_head.as_mut()
         })
     }
 }
 
 impl<'a, T> DoubleEndedIterator for NodeIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.tail.map(|old_tail| unsafe {
+        self.tail.map(|mut old_tail| unsafe {
             if self.head == self.tail {
                 self.head = None;
                 self.tail = None;
             } else {
-                let new_tail = (*old_tail).prev;
+                let new_tail = old_tail.as_ref().prev;
                 self.tail = new_tail;
             }
-            old_tail
+            old_tail.as_mut()
         })
     }
 }
@@ -278,13 +309,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|node| unsafe { &(*node).element })
+        self.0.next().map(|node| &node.element)
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(|node| unsafe { &(*node).element })
+        self.0.next_back().map(|node| &node.element)
     }
 }
 
@@ -309,15 +340,13 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|node| unsafe { &mut (*node).element })
+        self.0.next().map(|node| &mut node.element)
     }
 }
 
 impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.0
-            .next_back()
-            .map(|node| unsafe { &mut (*node).element })
+        self.0.next_back().map(|node| &mut node.element)
     }
 }
 
@@ -507,10 +536,10 @@ mod tests {
         l.push_front(2);
         assert_eq!(l.len(), 2);
 
-        l.pop_back();
+        assert_eq!(l.pop_back(), Some(1));
         assert_eq!(l.len(), 1);
 
-        l.pop_front();
+        assert_eq!(l.pop_front(), Some(2));
         assert!(l.is_empty());
     }
 
@@ -548,12 +577,12 @@ mod tests {
     fn test_node_iter_double_ended_iterator() {
         let l = LinkedList::from_iter(1..=6);
         let mut iter = l.node_iter();
-        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 1);
-        assert_eq!(unsafe { (*iter.next_back().unwrap()).element }, 6);
-        assert_eq!(unsafe { (*iter.next_back().unwrap()).element }, 5);
-        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 2);
-        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 3);
-        assert_eq!(unsafe { (*iter.next().unwrap()).element }, 4);
+        assert_eq!(iter.next().unwrap().element, 1);
+        assert_eq!(iter.next_back().unwrap().element, 6);
+        assert_eq!(iter.next_back().unwrap().element, 5);
+        assert_eq!(iter.next().unwrap().element, 2);
+        assert_eq!(iter.next().unwrap().element, 3);
+        assert_eq!(iter.next().unwrap().element, 4);
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next_back(), None);
     }
@@ -561,8 +590,7 @@ mod tests {
     #[test]
     fn test_node_iter_mut() {
         let mut l = LinkedList::from([1, 2, 3]);
-        l.node_iter_mut()
-            .for_each(|node| unsafe { (*node).element += 1 });
+        l.node_iter_mut().for_each(|node| node.element += 1);
         assert_eq!(l, LinkedList::from([2, 3, 4]));
     }
 
@@ -732,26 +760,5 @@ mod tests {
         let l = LinkedList::from([1, 2, 3]);
         let c = l.clone();
         assert_eq!(l, c);
-    }
-
-    #[test]
-    fn test_drop() {
-        let ptr = {
-            let l = LinkedList::from([1, 2, 3]);
-            l.node_iter().nth(0).unwrap()
-        };
-        assert_ne!(unsafe { (*ptr).element }, 1);
-
-        let ptr = {
-            let l = LinkedList::from([1, 2, 3]);
-            l.node_iter().nth(1).unwrap()
-        };
-        assert_ne!(unsafe { (*ptr).element }, 2);
-
-        let ptr = {
-            let l = LinkedList::from([1, 2, 3]);
-            l.node_iter().nth(2).unwrap()
-        };
-        assert_ne!(unsafe { (*ptr).element }, 3);
     }
 }
