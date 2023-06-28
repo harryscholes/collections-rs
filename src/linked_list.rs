@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, ptr::NonNull};
 
 /// Space complexity: O(n)
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 pub struct LinkedList<T> {
     head: Link<T>,
     tail: Link<T>,
@@ -11,7 +11,7 @@ pub struct LinkedList<T> {
 type Link<T> = Option<NonNull<Node<T>>>;
 
 /// Space complexity: O(1)
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Node<T> {
     element: T,
     next: Link<T>,
@@ -34,8 +34,8 @@ impl<T> From<Node<T>> for NonNull<Node<T>> {
     }
 }
 
-impl<T> From<NonNull<Self>> for Node<T> {
-    fn from(ptr: NonNull<Self>) -> Self {
+impl<T> From<NonNull<Node<T>>> for Node<T> {
+    fn from(ptr: NonNull<Node<T>>) -> Self {
         unsafe { *Box::from_raw(ptr.as_ptr()) }
     }
 }
@@ -88,8 +88,8 @@ impl<T> LinkedList<T> {
                 let old_tail: Node<_> = old_tail.into();
                 match old_tail.prev {
                     Some(mut new_tail) => {
-                        self.tail = Some(new_tail);
                         new_tail.as_mut().next = None;
+                        self.tail = Some(new_tail);
                     }
                     None => {
                         self.head = None;
@@ -109,8 +109,8 @@ impl<T> LinkedList<T> {
                 let old_head: Node<_> = old_head.into();
                 match old_head.next {
                     Some(mut new_head) => {
-                        self.head = Some(new_head);
                         new_head.as_mut().prev = None;
+                        self.head = Some(new_head);
                     }
                     None => {
                         self.head = None;
@@ -133,23 +133,23 @@ impl<T> LinkedList<T> {
             } else if index == self.len() - 1 {
                 self.pop_back()
             } else {
-                let mut node = self.head;
-                for _ in 0..index {
-                    if let Some(_node) = node {
-                        node = _node.as_ref().next;
-                    }
-                }
-                node.map(|node| {
-                    let node: Node<_> = node.into();
+                let node = self.node_iter_mut().nth(index).map(|node| {
                     if let Some(mut prev) = node.prev {
                         prev.as_mut().next = node.next;
                     }
                     if let Some(mut next) = node.next {
                         next.as_mut().prev = node.prev;
                     }
+                    // Hack to get hold of `Node<T>`
+                    let ptr: NonNull<Node<_>> = node.into();
+                    let node: Node<_> = ptr.into();
+                    node
+                });
+                // Hack to get around the borrow checeker
+                if node.is_some() {
                     self.len -= 1;
-                    node.element
-                })
+                }
+                node.map(|node| node.element)
             }
         }
     }
@@ -583,8 +583,8 @@ mod tests {
         assert_eq!(iter.next().unwrap().element, 2);
         assert_eq!(iter.next().unwrap().element, 3);
         assert_eq!(iter.next().unwrap().element, 4);
-        assert_eq!(iter.next(), None);
-        assert_eq!(iter.next_back(), None);
+        assert!(iter.next().is_none());
+        assert!(iter.next_back().is_none());
     }
 
     #[test]
@@ -729,18 +729,23 @@ mod tests {
     fn test_remove() {
         let mut l = LinkedList::from([1, 2, 3]);
         assert_eq!(l.remove(0), Some(1));
+        assert_eq!(l.len(), 2);
 
         let mut l = LinkedList::from([1, 2, 3]);
         assert_eq!(l.remove(2), Some(3));
+        assert_eq!(l.len(), 2);
 
         let mut l = LinkedList::from([1, 2, 3]);
         assert_eq!(l.remove(3), None);
+        assert_eq!(l.len(), 3);
 
         let mut l = LinkedList::from([1, 2, 3]);
         assert_eq!(l.remove(1), Some(2));
+        assert_eq!(l.len(), 2);
 
         let mut l = LinkedList::from([1, 2, 3, 4]);
         assert_eq!(l.remove(2), Some(3));
+        assert_eq!(l.len(), 3);
     }
 
     #[test]
