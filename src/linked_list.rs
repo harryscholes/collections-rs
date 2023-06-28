@@ -198,7 +198,7 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
                 let new_head = (*old_head).next;
                 self.head = new_head;
             }
-            old_head as *const Node<T>
+            old_head.cast_const()
         })
     }
 }
@@ -213,7 +213,7 @@ impl<'a, T> DoubleEndedIterator for NodeIter<'a, T> {
                 let new_tail = (*old_tail).prev;
                 self.tail = new_tail;
             }
-            old_tail as *const Node<T>
+            old_tail.cast_const()
         })
     }
 }
