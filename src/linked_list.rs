@@ -390,6 +390,12 @@ where
     }
 }
 
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
+        while self.pop_front().is_some() {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -726,5 +732,26 @@ mod tests {
         let l = LinkedList::from([1, 2, 3]);
         let c = l.clone();
         assert_eq!(l, c);
+    }
+
+    #[test]
+    fn test_drop() {
+        let ptr = {
+            let l = LinkedList::from([1, 2, 3]);
+            l.node_iter().nth(0).unwrap()
+        };
+        assert_ne!(unsafe { (*ptr).element }, 1);
+
+        let ptr = {
+            let l = LinkedList::from([1, 2, 3]);
+            l.node_iter().nth(1).unwrap()
+        };
+        assert_ne!(unsafe { (*ptr).element }, 2);
+
+        let ptr = {
+            let l = LinkedList::from([1, 2, 3]);
+            l.node_iter().nth(2).unwrap()
+        };
+        assert_ne!(unsafe { (*ptr).element }, 3);
     }
 }
