@@ -133,14 +133,16 @@ impl<T> LinkedList<T> {
             } else if index == self.len() - 1 {
                 self.pop_back()
             } else {
-                let el = self.node_iter().nth(index).map(|node| {
+                let el = self.node_iter_mut().nth(index).map(|node| {
                     if let Some(mut prev) = node.prev {
                         prev.as_mut().next = node.next;
                     }
                     if let Some(mut next) = node.next {
                         next.as_mut().prev = node.prev;
                     }
-                    // Hack to get hold of `Node<T>`
+                    // Hack to get hold of `Node<T>`.
+                    // Safety: using `node_iter_mut` guarantees that we only have one reference to `self` and `node`,
+                    // so it is safe to convert `&mut Node<T>` to `Node<T>`.
                     let ptr: NonNull<Node<_>> = node.into();
                     let node: Node<_> = ptr.into();
                     node.element
