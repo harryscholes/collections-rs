@@ -83,13 +83,8 @@ where
 
     /// Time complexity: O(n)
     fn resize(&mut self) {
-        let new_buckets = (0..self.len()).map(|_| None).collect();
-        let old_buckets = std::mem::replace(&mut self.buckets, new_buckets);
-
-        let old_map = HashMap {
-            buckets: old_buckets,
-            len: 0,
-        };
+        let mut old_map = HashMap::with_capacity(self.len());
+        std::mem::swap(&mut old_map.buckets, &mut self.buckets);
         self.len = 0;
         for (key, value) in old_map {
             self.insert_without_resizing(key, value);
@@ -129,6 +124,21 @@ where
                 None
             }
             None => None,
+        }
+    }
+
+    /// Time complexity: O(n)
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        let mut old_map = HashMap::new();
+        std::mem::swap(&mut old_map.buckets, &mut self.buckets);
+        self.len = 0;
+        for (key, mut value) in old_map {
+            if f(&key, &mut value) {
+                self.insert(key, value);
+            }
         }
     }
 
@@ -595,6 +605,85 @@ mod tests {
         assert!(hm.contains_key(&0));
         hm.remove(&0);
         assert!(!hm.contains_key(&0));
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut hm = HashMap::new();
+        for i in 0..=10 {
+            hm.insert(i, i);
+        }
+        hm.retain(|k, _v| *k <= 10);
+        assert_eq!(hm.len(), 11);
+        hm.retain(|k, _v| *k <= 5);
+        assert_eq!(hm.len(), 6);
+        for i in 0..=5 {
+            assert!(hm.contains_key(&i));
+        }
+        for i in 6..=10 {
+            assert!(!hm.contains_key(&i));
+        }
+
+        let mut hm = HashMap::new();
+        for i in 0..=10 {
+            hm.insert(i, i);
+        }
+        hm.retain(|k, _v| *k >= 0);
+        assert_eq!(hm.len(), 11);
+        hm.retain(|k, _v| *k >= 5);
+        assert_eq!(hm.len(), 6);
+        for i in 0..=4 {
+            assert!(!hm.contains_key(&i));
+        }
+        for i in 5..=10 {
+            assert!(hm.contains_key(&i));
+        }
+
+        let mut hm = HashMap::new();
+        for i in 0..=10 {
+            hm.insert(i, i);
+        }
+        hm.retain(|_k, v| *v <= 10);
+        assert_eq!(hm.len(), 11);
+        hm.retain(|_k, v| *v <= 5);
+        assert_eq!(hm.len(), 6);
+        for i in 0..=5 {
+            assert!(hm.contains_key(&i));
+        }
+        for i in 6..=10 {
+            assert!(!hm.contains_key(&i));
+        }
+
+        let mut hm = HashMap::new();
+        for i in 0..=10 {
+            hm.insert(i, i);
+        }
+        hm.retain(|_k, v| *v >= 0);
+        assert_eq!(hm.len(), 11);
+        hm.retain(|_k, v| *v >= 5);
+        assert_eq!(hm.len(), 6);
+        for i in 0..=4 {
+            assert!(!hm.contains_key(&i));
+        }
+        for i in 5..=10 {
+            assert!(hm.contains_key(&i));
+        }
+
+        let mut hm = HashMap::new();
+        for i in 0..=10 {
+            hm.insert(i, i);
+        }
+        hm.retain(|_k, v| {
+            *v += 1;
+            *v >= 10
+        });
+        assert_eq!(hm.len(), 2);
+        for i in 0..=8 {
+            assert!(!hm.contains_key(&i));
+        }
+        for i in 9..=10 {
+            assert!(hm.contains_key(&i));
+        }
     }
 
     #[test]
