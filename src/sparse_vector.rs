@@ -1,4 +1,5 @@
-use std::{collections::HashMap, iter::FusedIterator};
+use crate::hash_map::HashMap;
+use std::iter::FusedIterator;
 
 // Space complexity: O(d)
 pub struct SparseVector<T> {
