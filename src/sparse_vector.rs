@@ -47,7 +47,7 @@ where
         Ok(self.data.get(&index).unwrap_or(&self.default))
     }
 
-    /// Time complexity: O(d)
+    /// Time complexity: O(n)
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len > 0 {
             let el = self.data.remove(&0).or(Some(T::default()));
