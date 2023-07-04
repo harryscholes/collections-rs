@@ -1,5 +1,6 @@
 use crate::heap::{Heap, MaxHeap};
 
+#[derive(Eq)]
 struct Item<T> {
     value: T,
     priority: usize,
@@ -14,8 +15,6 @@ where
         self.value == other.value
     }
 }
-
-impl<T> Eq for Item<T> where T: PartialEq {}
 
 impl<T> PartialOrd for Item<T>
 where
@@ -127,6 +126,32 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct IntoIter<T>(PriorityQueue<T>);
+
+impl<T> Iterator for IntoIter<T>
+where
+    T: Ord,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.dequeue()
+    }
+}
+
+impl<T> IntoIterator for PriorityQueue<T>
+where
+    T: Ord,
+{
+    type Item = T;
+
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self)
     }
 }
 
@@ -266,6 +291,24 @@ mod test {
         assert!(!pq.is_empty());
         pq.dequeue();
         assert!(pq.is_empty());
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut pq = PriorityQueue::new();
+        pq.enqueue('a', 1);
+        pq.enqueue('b', 1);
+        pq.enqueue('c', 3);
+        pq.enqueue('d', 2);
+        pq.enqueue('e', 4);
+
+        let mut iter = pq.into_iter();
+        assert_eq!(iter.next(), Some('e'));
+        assert_eq!(iter.next(), Some('c'));
+        assert_eq!(iter.next(), Some('d'));
+        assert_eq!(iter.next(), Some('a'));
+        assert_eq!(iter.next(), Some('b'));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
