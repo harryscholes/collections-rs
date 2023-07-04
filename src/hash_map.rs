@@ -8,7 +8,7 @@ const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HashMap<K, V> {
     buckets: Vec<Option<Bucket<K, V>>>,
     len: usize,
@@ -16,7 +16,7 @@ pub struct HashMap<K, V> {
 
 type Bucket<K, V> = LinkedList<Node<K, V>>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Node<K, V> {
     key: K,
     value: V,
