@@ -5,9 +5,12 @@ use crate::circular_buffer::{self, CircularBuffer};
 pub struct Dequeue<T>(CircularBuffer<T>);
 
 impl<T> Dequeue<T> {
-    /// Time complexity: O(1)
     pub fn new() -> Self {
-        Self(CircularBuffer::new(1))
+        Self::with_capacity(1)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(CircularBuffer::with_capacity(capacity))
     }
 
     /// Time complexity: amortised O(1), O(n) worst case
