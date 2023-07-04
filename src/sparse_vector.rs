@@ -10,26 +10,13 @@ pub struct SparseVector<T> {
 
 impl<T> SparseVector<T>
 where
-    T: Default,
+    T: Default + std::cmp::PartialEq,
 {
     pub fn new(len: usize) -> Self {
         Self {
             data: HashMap::new(),
             len,
             default: T::default(),
-        }
-    }
-}
-
-impl<T> SparseVector<T>
-where
-    T: std::cmp::PartialEq,
-{
-    pub fn with_default(len: usize, default: T) -> Self {
-        Self {
-            data: HashMap::new(),
-            len,
-            default,
         }
     }
 
@@ -42,7 +29,7 @@ where
     // Time complexity: O(1)
     pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
         self.bounds_check(index)?;
-        if value != self.default {
+        if value != T::default() {
             self.data.insert(index, value);
         }
         Ok(())
@@ -58,6 +45,32 @@ where
     pub fn get(&self, index: usize) -> Result<&T, Error> {
         self.bounds_check(index)?;
         Ok(self.data.get(&index).unwrap_or(&self.default))
+    }
+
+    /// Time complexity: O(d)
+    pub fn pop_front(&mut self) -> Option<T> {
+        if self.len > 0 {
+            let el = self.data.remove(&0).or(Some(T::default()));
+            for index in 1..self.len {
+                self.data
+                    .remove(&index)
+                    .map(|el| self.data.insert(index - 1, el));
+            }
+            self.len -= 1;
+            el
+        } else {
+            None
+        }
+    }
+
+    /// Time complexity: O(1)
+    pub fn pop_back(&mut self) -> Option<T> {
+        if self.len > 0 {
+            self.len -= 1;
+            self.data.remove(&self.len).or(Some(T::default()))
+        } else {
+            None
+        }
     }
 
     // Time complexity: O(1)
@@ -88,38 +101,67 @@ where
 }
 
 pub struct Iter<'a, T> {
-    sv: &'a SparseVector<T>,
-    index: usize,
+    sv: Option<&'a SparseVector<T>>,
+    head: usize,
+    tail: usize,
 }
 
 impl<'a, T> Iter<'a, T> {
     fn new(sv: &'a SparseVector<T>) -> Self {
-        Self { sv, index: 0 }
+        Self {
+            sv: Some(sv),
+            head: 0,
+            tail: sv.len - 1,
+        }
     }
 }
 
 impl<'a, T> Iterator for Iter<'a, T>
 where
-    T: std::cmp::PartialEq,
+    T: Default + std::cmp::PartialEq,
 {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match &self.sv.get(self.index) {
-            Ok(v) => {
-                self.index += 1;
-                Some(v)
+        match self.sv {
+            Some(sv) => {
+                let el = sv.get(self.head).ok();
+                self.head += 1;
+                if self.head > self.tail {
+                    self.sv = None;
+                }
+                el
             }
-            Err(_) => None,
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T>
+where
+    T: Default + std::cmp::PartialEq,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.sv {
+            Some(sv) => {
+                let el = sv.get(self.tail).ok();
+                self.tail -= 1;
+                if self.tail < self.head {
+                    self.sv = None;
+                }
+                el
+            }
+            None => None,
         }
     }
 }
 
 impl<'a, T> IntoIterator for &'a SparseVector<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Default + std::cmp::PartialEq,
 {
     type Item = &'a T;
+
     type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -127,37 +169,37 @@ where
     }
 }
 
-pub struct IntoIter<T> {
-    sv: SparseVector<T>,
-    index: usize,
-}
+pub struct IntoIter<T>(SparseVector<T>);
 
 impl<T> IntoIter<T> {
     fn new(sv: SparseVector<T>) -> Self {
-        Self { sv, index: 0 }
+        Self(sv)
     }
 }
 
 impl<T> Iterator for IntoIter<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Default + std::cmp::PartialEq,
 {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.sv.get(self.index) {
-            Ok(v) => {
-                self.index += 1;
-                Some(v.clone())
-            }
-            Err(_) => None,
-        }
+        self.0.pop_front()
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T>
+where
+    T: Default + std::cmp::PartialEq,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.pop_back()
     }
 }
 
 impl<T> IntoIterator for SparseVector<T>
 where
-    T: Clone + std::cmp::PartialEq,
+    T: Default + std::cmp::PartialEq,
 {
     type Item = T;
     type IntoIter = IntoIter<T>;
@@ -167,8 +209,8 @@ where
     }
 }
 
-impl<'a, T> FusedIterator for Iter<'a, T> where T: std::cmp::PartialEq {}
-impl<T> FusedIterator for IntoIter<T> where T: Clone + std::cmp::PartialEq {}
+impl<'a, T> FusedIterator for Iter<'a, T> where T: Default + std::cmp::PartialEq {}
+impl<T> FusedIterator for IntoIter<T> where T: Default + std::cmp::PartialEq {}
 
 impl<T> FromIterator<T> for SparseVector<T>
 where
@@ -232,6 +274,36 @@ mod tests {
     }
 
     #[test]
+    fn test_pop_back() {
+        let mut sv = SparseVector::new(3);
+        sv.insert(0, 1).unwrap();
+        sv.insert(2, 2).unwrap();
+        assert_eq!(sv.len(), 3);
+        assert_eq!(sv.pop_back(), Some(2));
+        assert_eq!(sv.len(), 2);
+        assert_eq!(sv.pop_back(), Some(0));
+        assert_eq!(sv.len(), 1);
+        assert_eq!(sv.pop_back(), Some(1));
+        assert_eq!(sv.len(), 0);
+        assert_eq!(sv.pop_back(), None);
+    }
+
+    #[test]
+    fn test_pop_front() {
+        let mut sv = SparseVector::new(3);
+        sv.insert(0, 1).unwrap();
+        sv.insert(2, 2).unwrap();
+        assert_eq!(sv.len(), 3);
+        assert_eq!(sv.pop_front(), Some(1));
+        assert_eq!(sv.len(), 2);
+        assert_eq!(sv.pop_front(), Some(0));
+        assert_eq!(sv.len(), 1);
+        assert_eq!(sv.pop_front(), Some(2));
+        assert_eq!(sv.len(), 0);
+        assert_eq!(sv.pop_front(), None);
+    }
+
+    #[test]
     fn test_resize() {
         let mut sv = SparseVector::new(3);
         sv.insert(2, 2).unwrap();
@@ -250,10 +322,10 @@ mod tests {
         let mut sv = SparseVector::new(3);
         sv.insert(0, 0).unwrap();
         sv.insert(2, 2).unwrap();
-        let mut iter = sv.iter();
-        assert_eq!(iter.next(), Some(&0));
-        assert_eq!(iter.next(), Some(&0));
-        assert_eq!(iter.next(), Some(&2));
+        let mut iter = sv.iter(); // head = 0, tail = 2
+        assert_eq!(iter.next(), Some(&0)); // head = 1, tail = 2
+        assert_eq!(iter.next(), Some(&0)); // head = 2, tail = 2
+        assert_eq!(iter.next(), Some(&2)); // head = 3, tail = 2
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
 
@@ -261,6 +333,25 @@ mod tests {
         sv.insert(4, 4usize).unwrap();
         let dense = sv.iter().collect::<Vec<&usize>>();
         assert_eq!(dense, vec![&0, &0, &0, &0, &4]);
+    }
+
+    #[test]
+    fn test_iter_double_ended_iterator() {
+        let mut sv = SparseVector::new(7);
+        sv.insert(1, 1).unwrap();
+        sv.insert(3, 3).unwrap();
+        sv.insert(5, 5).unwrap();
+
+        let mut iter = sv.iter();
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next_back(), Some(&0));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), Some(&5));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next_back(), Some(&0));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next_back(), None);
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
@@ -312,7 +403,6 @@ mod tests {
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(5));
         assert_eq!(iter.next(), Some(0));
-        assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
     }
 }
