@@ -11,3 +11,4 @@ pub mod priority_queue;
 pub mod queue;
 pub mod sparse_vector;
 pub mod stack;
+pub mod vector;
