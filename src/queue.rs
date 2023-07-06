@@ -1,8 +1,8 @@
-use crate::circular_buffer::{self, CircularBuffer};
+use crate::dequeue::{self, Dequeue};
 
 /// Space complexity: O(n)
 #[derive(Clone, Debug)]
-pub struct Queue<T>(CircularBuffer<T>);
+pub struct Queue<T>(Dequeue<T>);
 
 impl<T> Queue<T> {
     pub fn new() -> Self {
@@ -10,14 +10,11 @@ impl<T> Queue<T> {
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(CircularBuffer::with_capacity(capacity))
+        Self(Dequeue::with_capacity(capacity))
     }
 
     /// Time complexity: amortised O(1), O(n) worst case
     pub fn enqueue(&mut self, el: T) {
-        if self.0.free() == 0 {
-            self.0.grow(self.0.capacity())
-        }
         self.0.push_back(el);
     }
 
@@ -28,7 +25,7 @@ impl<T> Queue<T> {
 
     /// Time complexity: O(1)
     pub fn peek(&self) -> Option<&T> {
-        self.0.first()
+        self.0.peek_front()
     }
 }
 
@@ -54,7 +51,7 @@ impl<T> FromIterator<T> for Queue<T> {
     }
 }
 
-pub struct Iter<'a, T>(circular_buffer::Iter<'a, T>);
+pub struct Iter<'a, T>(dequeue::Iter<'a, T>);
 
 impl<'a, T> Iter<'a, T> {
     fn new(q: &'a Queue<T>) -> Self {
@@ -79,7 +76,7 @@ impl<'a, T> IntoIterator for &'a Queue<T> {
     }
 }
 
-pub struct IntoIter<T>(circular_buffer::IntoIter<T>);
+pub struct IntoIter<T>(dequeue::IntoIter<T>);
 
 impl<T> IntoIter<T> {
     fn new(q: Queue<T>) -> Self {
