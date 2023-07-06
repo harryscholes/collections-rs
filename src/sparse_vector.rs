@@ -2,8 +2,8 @@ use crate::hash_map::HashMap;
 use std::iter::FusedIterator;
 
 // Space complexity: O(d)
-#[derive(Eq, Debug)]
-pub struct SparseVector<T: Default> {
+#[derive(Debug)]
+pub struct SparseVector<T> {
     data: HashMap<usize, T>,
     len: usize,
     default: T,
@@ -11,7 +11,7 @@ pub struct SparseVector<T: Default> {
 
 impl<T> SparseVector<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: Default,
 {
     pub fn with_capacity(len: usize) -> Self {
         Self {
@@ -20,43 +20,24 @@ where
             default: T::default(),
         }
     }
+}
 
-    // Time complexity: O(d)
-    pub fn resize(&mut self, new_len: usize) {
-        self.len = new_len;
-        self.data.retain(|&index, _| index < self.len);
-    }
-
-    // Time complexity: O(1)
-    pub fn insert_unchecked(&mut self, index: usize, value: T) {
-        if value != T::default() {
-            self.data.insert(index, value);
+impl<T> SparseVector<T>
+where
+    T: Clone,
+{
+    pub fn with_default(default: T, len: usize) -> Self {
+        Self {
+            data: HashMap::with_capacity(len),
+            len,
+            default,
         }
-    }
-
-    // Time complexity: O(1)
-    pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
-        self.bounds_check(index)?;
-        self.insert_unchecked(index, value);
-        Ok(())
-    }
-
-    // Time complexity: O(1)
-    pub fn remove(&mut self, index: usize) -> Result<Option<T>, Error> {
-        self.bounds_check(index)?;
-        Ok(self.data.remove(&index))
-    }
-
-    // Time complexity: O(1)
-    pub fn get(&self, index: usize) -> Result<&T, Error> {
-        self.bounds_check(index)?;
-        Ok(self.data.get(&index).unwrap_or(&self.default))
     }
 
     /// Time complexity: O(n)
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len > 0 {
-            let el = self.data.remove(&0).or(Some(T::default()));
+            let el = self.data.remove(&0).or(Some(self.default.clone()));
             for index in 1..self.len {
                 self.data
                     .remove(&index)
@@ -73,10 +54,49 @@ where
     pub fn pop_back(&mut self) -> Option<T> {
         if self.len > 0 {
             self.len -= 1;
-            self.data.remove(&self.len).or(Some(T::default()))
+            self.data.remove(&self.len).or(Some(self.default.clone()))
         } else {
             None
         }
+    }
+}
+
+impl<T> SparseVector<T>
+where
+    T: PartialEq,
+{
+    // Time complexity: O(1)
+    pub fn insert_unchecked(&mut self, index: usize, value: T) {
+        if value != self.default {
+            self.data.insert(index, value);
+        }
+    }
+
+    // Time complexity: O(1)
+    pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
+        self.bounds_check(index)?;
+        self.insert_unchecked(index, value);
+        Ok(())
+    }
+}
+
+impl<T> SparseVector<T> {
+    // Time complexity: O(1)
+    pub fn get(&self, index: usize) -> Result<&T, Error> {
+        self.bounds_check(index)?;
+        Ok(self.data.get(&index).unwrap_or(&self.default))
+    }
+
+    // Time complexity: O(d)
+    pub fn resize(&mut self, new_len: usize) {
+        self.len = new_len;
+        self.data.retain(|&index, _| index < self.len);
+    }
+
+    // Time complexity: O(1)
+    pub fn remove(&mut self, index: usize) -> Result<Option<T>, Error> {
+        self.bounds_check(index)?;
+        Ok(self.data.remove(&index))
     }
 
     // Time complexity: O(1)
@@ -108,23 +128,22 @@ where
 
 impl<T> PartialEq for SparseVector<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.len == other.len && self.default == other.default && self.iter().eq(other)
     }
 }
 
-pub struct Iter<'a, T: Default> {
+impl<T> Eq for SparseVector<T> where T: Eq {}
+
+pub struct Iter<'a, T> {
     sv: Option<&'a SparseVector<T>>,
     head: usize,
     tail: usize,
 }
 
-impl<'a, T> Iter<'a, T>
-where
-    T: Default,
-{
+impl<'a, T> Iter<'a, T> {
     fn new(sv: &'a SparseVector<T>) -> Self {
         Self {
             sv: Some(sv),
@@ -134,10 +153,7 @@ where
     }
 }
 
-impl<'a, T> Iterator for Iter<'a, T>
-where
-    T: Default + std::cmp::PartialEq,
-{
+impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -155,10 +171,7 @@ where
     }
 }
 
-impl<'a, T> DoubleEndedIterator for Iter<'a, T>
-where
-    T: Default + std::cmp::PartialEq,
-{
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.sv {
             Some(sv) => {
@@ -173,10 +186,7 @@ where
     }
 }
 
-impl<'a, T> IntoIterator for &'a SparseVector<T>
-where
-    T: Default + std::cmp::PartialEq,
-{
+impl<'a, T> IntoIterator for &'a SparseVector<T> {
     type Item = &'a T;
 
     type IntoIter = Iter<'a, T>;
@@ -186,12 +196,9 @@ where
     }
 }
 
-pub struct IntoIter<T: Default>(SparseVector<T>);
+pub struct IntoIter<T>(SparseVector<T>);
 
-impl<T> IntoIter<T>
-where
-    T: Default,
-{
+impl<T> IntoIter<T> {
     fn new(sv: SparseVector<T>) -> Self {
         Self(sv)
     }
@@ -199,7 +206,7 @@ where
 
 impl<T> Iterator for IntoIter<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: Clone,
 {
     type Item = T;
 
@@ -210,7 +217,7 @@ where
 
 impl<T> DoubleEndedIterator for IntoIter<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: Clone,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.pop_back()
@@ -219,7 +226,7 @@ where
 
 impl<T> IntoIterator for SparseVector<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: Clone,
 {
     type Item = T;
 
@@ -230,12 +237,12 @@ where
     }
 }
 
-impl<'a, T> FusedIterator for Iter<'a, T> where T: Default + std::cmp::PartialEq {}
-impl<T> FusedIterator for IntoIter<T> where T: Default + std::cmp::PartialEq {}
+impl<'a, T> FusedIterator for Iter<'a, T> {}
+impl<T> FusedIterator for IntoIter<T> where T: Clone {}
 
 impl<T> FromIterator<T> for SparseVector<T>
 where
-    T: Default + std::cmp::PartialEq,
+    T: Default + PartialEq,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
