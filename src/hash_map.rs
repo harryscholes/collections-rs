@@ -8,7 +8,7 @@ const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct HashMap<K, V> {
     buckets: Vector<Option<Bucket<K, V>>>,
     len: usize,
@@ -16,7 +16,7 @@ pub struct HashMap<K, V> {
 
 type Bucket<K, V> = LinkedList<Node<K, V>>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Node<K, V> {
     key: K,
     value: V,
@@ -182,6 +182,44 @@ where
     fn default() -> Self {
         Self::new()
     }
+}
+
+impl<K, V> Clone for HashMap<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            buckets: self.buckets.iter().cloned().collect(),
+            len: self.len,
+        }
+    }
+}
+
+impl<K, V> PartialEq for HashMap<K, V>
+where
+    K: PartialEq + std::cmp::Ord,
+    V: PartialEq + std::cmp::Ord,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.len != other.len {
+            return false;
+        }
+
+        let mut self_vec: Vector<_> = self.iter().collect();
+        let mut other_vec: Vector<_> = other.iter().collect();
+        self_vec.sort();
+        other_vec.sort();
+        self_vec == other_vec
+    }
+}
+
+impl<K, V> Eq for HashMap<K, V>
+where
+    K: Eq + std::cmp::Ord,
+    V: Eq + std::cmp::Ord,
+{
 }
 
 pub struct Iter<'a, K, V> {
@@ -716,5 +754,15 @@ mod tests {
                 assert!(hm.contains_key(&j));
             }
         }
+    }
+
+    #[test]
+    fn test_clone() {
+        let mut hm = HashMap::new();
+        for i in 0..=5 {
+            hm.insert(i, i);
+        }
+        let cloned = hm.clone();
+        assert_eq!(hm, cloned);
     }
 }

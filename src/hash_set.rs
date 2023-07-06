@@ -3,7 +3,7 @@ use std::hash::Hash;
 use crate::hash_map::{self, HashMap};
 
 /// Space complexity: O(n)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct HashSet<T>(HashMap<T, ()>);
 
 impl<T> HashSet<T>
@@ -87,6 +87,17 @@ where
         Self::new()
     }
 }
+
+impl<T> PartialEq for HashSet<T>
+where
+    T: PartialEq + std::cmp::Ord,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T> Eq for HashSet<T> where T: Eq + std::cmp::Ord {}
 
 pub struct Iter<'a, T>(hash_map::Iter<'a, T, ()>);
 
@@ -292,5 +303,12 @@ mod tests {
         let b = HashSet::from([1, 2]);
         a.difference(&b);
         assert_eq!(a, HashSet::from([0]));
+    }
+
+    #[test]
+    fn test_clone() {
+        let hs = HashSet::from_iter(0..=5);
+        let cloned = hs.clone();
+        assert_eq!(hs, cloned);
     }
 }
