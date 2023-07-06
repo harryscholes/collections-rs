@@ -1,3 +1,4 @@
+use crate::vector::Vector;
 use std::cmp::Reverse;
 
 pub trait Heap<T> {
@@ -17,7 +18,7 @@ pub trait Heap<T> {
     }
 }
 
-pub struct MaxHeap<T>(Vec<T>);
+pub struct MaxHeap<T>(Vector<T>);
 
 impl<T> MaxHeap<T>
 where
@@ -28,7 +29,7 @@ where
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Vec::with_capacity(capacity))
+        Self(Vector::with_capacity(capacity))
     }
 
     /// Time complexity: O(log(n))
@@ -107,7 +108,7 @@ where
     fn delete_index(&mut self, index: usize) -> Option<T> {
         let last_index = self.len() - 1;
         self.0.swap(index, last_index);
-        let el = self.0.pop();
+        let el = self.0.pop_back();
         // Heapify
         if let Some(x) = self.0.get(index) {
             if let Some(parent) = self.0.get(parent_index(index)) {
@@ -129,7 +130,7 @@ where
 {
     /// Time complexity: O(log(n))
     fn push(&mut self, el: T) {
-        self.0.push(el);
+        self.0.push_back(el);
         self.sift_up(self.len() - 1);
         debug_assert!(is_heap(&self.0));
     }
@@ -140,7 +141,7 @@ where
             Some(_root) => {
                 let len = self.len();
                 self.0.swap(0, len - 1);
-                let root = self.0.pop();
+                let root = self.0.pop_back();
                 self.sift_down(0);
                 debug_assert!(is_heap(&self.0));
                 root

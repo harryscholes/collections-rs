@@ -2,8 +2,8 @@ use crate::hash_map::HashMap;
 use std::iter::FusedIterator;
 
 // Space complexity: O(d)
-#[derive(Eq, PartialEq, Debug)]
-pub struct SparseVector<T> {
+#[derive(Eq, Debug)]
+pub struct SparseVector<T: Default> {
     data: HashMap<usize, T>,
     len: usize,
     default: T,
@@ -28,11 +28,16 @@ where
     }
 
     // Time complexity: O(1)
-    pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
-        self.bounds_check(index)?;
+    pub fn insert_unchecked(&mut self, index: usize, value: T) {
         if value != T::default() {
             self.data.insert(index, value);
         }
+    }
+
+    // Time complexity: O(1)
+    pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
+        self.bounds_check(index)?;
+        self.insert_unchecked(index, value);
         Ok(())
     }
 
@@ -101,13 +106,25 @@ where
     }
 }
 
-pub struct Iter<'a, T> {
+impl<T> PartialEq for SparseVector<T>
+where
+    T: Default + std::cmp::PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len && self.default == other.default && self.iter().eq(other)
+    }
+}
+
+pub struct Iter<'a, T: Default> {
     sv: Option<&'a SparseVector<T>>,
     head: usize,
     tail: usize,
 }
 
-impl<'a, T> Iter<'a, T> {
+impl<'a, T> Iter<'a, T>
+where
+    T: Default,
+{
     fn new(sv: &'a SparseVector<T>) -> Self {
         Self {
             sv: Some(sv),
@@ -169,9 +186,12 @@ where
     }
 }
 
-pub struct IntoIter<T>(SparseVector<T>);
+pub struct IntoIter<T: Default>(SparseVector<T>);
 
-impl<T> IntoIter<T> {
+impl<T> IntoIter<T>
+where
+    T: Default,
+{
     fn new(sv: SparseVector<T>) -> Self {
         Self(sv)
     }
@@ -202,6 +222,7 @@ where
     T: Default + std::cmp::PartialEq,
 {
     type Item = T;
+
     type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -217,10 +238,12 @@ where
     T: Default + std::cmp::PartialEq,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let dv = iter.into_iter().collect::<Vec<T>>();
-        let mut sv = SparseVector::with_capacity(dv.len());
-        for (index, value) in dv.into_iter().enumerate() {
-            sv.insert(index, value).unwrap();
+        let iter = iter.into_iter();
+        let (_, upper) = iter.size_hint();
+        let mut sv = SparseVector::with_capacity(upper.unwrap_or(0));
+        for (index, value) in iter.enumerate() {
+            sv.insert_unchecked(index, value);
+            sv.len = index + 1;
         }
         sv
     }

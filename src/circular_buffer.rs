@@ -1,7 +1,9 @@
+use crate::vector::Vector;
+
 /// Space complexity: O(n)
 #[derive(Clone, Debug, Eq)]
 pub struct CircularBuffer<T> {
-    buf: Vec<Option<T>>,
+    buf: Vector<Option<T>>,
     start: usize,
     end: usize,
 }
@@ -11,7 +13,7 @@ impl<T> CircularBuffer<T> {
         Self::from_vec((0..capacity).map(|_| None).collect())
     }
 
-    fn from_vec(buf: Vec<Option<T>>) -> Self {
+    fn from_vec(buf: Vector<Option<T>>) -> Self {
         Self {
             buf,
             // `start` is the index of the first element in the buffer
@@ -112,7 +114,7 @@ impl<T> CircularBuffer<T> {
             };
             self.start = 0;
         }
-        self.buf.extend((0..n).map(|_| None).collect::<Vec<_>>());
+        self.buf.extend((0..n).map(|_| None).collect::<Vector<_>>());
     }
 
     fn decrement(&self, index: usize) -> usize {
@@ -299,7 +301,7 @@ mod tests {
     #[test]
     fn test_from_iter() {
         let cb = CircularBuffer::from_iter(0..=2);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -307,7 +309,7 @@ mod tests {
     #[test]
     fn test_from_vec() {
         let cb = CircularBuffer::from_iter(vec![0, 1, 2]);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -316,7 +318,7 @@ mod tests {
     #[should_panic]
     fn test_push_back_n0() {
         let mut cb = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.buf, vec![]);
+        assert_eq!(cb.buf, vec![].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(0);
@@ -325,15 +327,15 @@ mod tests {
     #[test]
     fn test_push_back_n1() {
         let mut cb = CircularBuffer::with_capacity(1);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0)]);
+        assert_eq!(cb.buf, vec![Some(0)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(1);
-        assert_eq!(cb.buf, vec![Some(1)]);
+        assert_eq!(cb.buf, vec![Some(1)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -341,23 +343,23 @@ mod tests {
     #[test]
     fn test_push_back_n2() {
         let mut cb = CircularBuffer::with_capacity(2);
-        assert_eq!(cb.buf, vec![None, None]);
+        assert_eq!(cb.buf, vec![None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0), None]);
+        assert_eq!(cb.buf, vec![Some(0), None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         cb.push_back(1);
-        assert_eq!(cb.buf, vec![Some(0), Some(1)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(2);
-        assert_eq!(cb.buf, vec![Some(2), Some(1)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(1)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
         cb.push_back(3);
-        assert_eq!(cb.buf, vec![Some(2), Some(3)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(3)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -365,23 +367,23 @@ mod tests {
     #[test]
     fn test_push_back_n3() {
         let mut cb = CircularBuffer::with_capacity(3);
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0), None, None]);
+        assert_eq!(cb.buf, vec![Some(0), None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         cb.push_back(1);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), None]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 2);
         cb.push_back(2);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_back(3);
-        assert_eq!(cb.buf, vec![Some(3), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(3), Some(1), Some(2)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
     }
@@ -396,15 +398,15 @@ mod tests {
     #[test]
     fn test_push_front_n1() {
         let mut cb = CircularBuffer::with_capacity(1);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_front(0);
-        assert_eq!(cb.buf, vec![Some(0)]);
+        assert_eq!(cb.buf, vec![Some(0)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_front(1);
-        assert_eq!(cb.buf, vec![Some(1)]);
+        assert_eq!(cb.buf, vec![Some(1)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -412,27 +414,27 @@ mod tests {
     #[test]
     fn test_push_front_n3() {
         let mut cb = CircularBuffer::with_capacity(3);
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_front(0);
-        assert_eq!(cb.buf, vec![None, None, Some(0)]);
+        assert_eq!(cb.buf, vec![None, None, Some(0)].into());
         assert_eq!(cb.start, 2);
         assert_eq!(cb.end, 0);
         cb.push_front(1);
-        assert_eq!(cb.buf, vec![None, Some(1), Some(0)]);
+        assert_eq!(cb.buf, vec![None, Some(1), Some(0)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 0);
         cb.push_front(2);
-        assert_eq!(cb.buf, vec![Some(2), Some(1), Some(0)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(1), Some(0)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         cb.push_front(3);
-        assert_eq!(cb.buf, vec![Some(2), Some(1), Some(3)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(1), Some(3)].into());
         assert_eq!(cb.start, 2);
         assert_eq!(cb.end, 2);
         cb.push_front(4);
-        assert_eq!(cb.buf, vec![Some(2), Some(4), Some(3)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(4), Some(3)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
     }
@@ -446,15 +448,15 @@ mod tests {
     #[test]
     fn test_pop_back_n1() {
         let mut cb = CircularBuffer::from_iter(0..=0);
-        assert_eq!(cb.buf, vec![Some(0)]);
+        assert_eq!(cb.buf, vec![Some(0)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_back(), Some(0));
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_back(), None);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -462,23 +464,23 @@ mod tests {
     #[test]
     fn test_pop_back_n3() {
         let mut cb = CircularBuffer::from_iter(0..=2);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_back(), Some(2));
-        assert_eq!(cb.buf, vec![Some(0), Some(1), None]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 2);
         assert_eq!(cb.pop_back(), Some(1));
-        assert_eq!(cb.buf, vec![Some(0), None, None]);
+        assert_eq!(cb.buf, vec![Some(0), None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.pop_back(), Some(0));
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_back(), None);
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -492,15 +494,15 @@ mod tests {
     #[test]
     fn test_pop_front_n1() {
         let mut cb = CircularBuffer::from_iter(0..=0);
-        assert_eq!(cb.buf, vec![Some(0)]);
+        assert_eq!(cb.buf, vec![Some(0)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_front(), Some(0));
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_front(), None);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -508,23 +510,23 @@ mod tests {
     #[test]
     fn test_pop_front_n3() {
         let mut cb = CircularBuffer::from_iter(0..=2);
-        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_front(), Some(0));
-        assert_eq!(cb.buf, vec![None, Some(1), Some(2)]);
+        assert_eq!(cb.buf, vec![None, Some(1), Some(2)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_front(), Some(1));
-        assert_eq!(cb.buf, vec![None, None, Some(2)]);
+        assert_eq!(cb.buf, vec![None, None, Some(2)].into());
         assert_eq!(cb.start, 2);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_front(), Some(2));
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.pop_back(), None);
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
     }
@@ -673,19 +675,19 @@ mod tests {
     #[test]
     fn test_grow() {
         let mut cb = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.buf, vec![]);
+        assert_eq!(cb.buf, vec![].into());
         cb.grow(1);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         cb.grow(1);
-        assert_eq!(cb.buf, vec![None, None]);
+        assert_eq!(cb.buf, vec![None, None].into());
         cb.push_front(0);
-        assert_eq!(cb.buf, vec![None, Some(0)]);
+        assert_eq!(cb.buf, vec![None, Some(0)].into());
         cb.grow(1);
-        assert_eq!(cb.buf, vec![Some(0), None, None]);
+        assert_eq!(cb.buf, vec![Some(0), None, None].into());
         cb.push_front(1);
-        assert_eq!(cb.buf, vec![Some(0), None, Some(1)]);
+        assert_eq!(cb.buf, vec![Some(0), None, Some(1)].into());
         cb.grow(1);
-        assert_eq!(cb.buf, vec![Some(1), Some(0), None, None]);
+        assert_eq!(cb.buf, vec![Some(1), Some(0), None, None].into());
     }
 
     #[test]
@@ -726,32 +728,32 @@ mod tests {
     #[test]
     fn test_free_n2() {
         let mut cb = CircularBuffer::with_capacity(2);
-        assert_eq!(cb.buf, vec![None, None]);
+        assert_eq!(cb.buf, vec![None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.free(), 2);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0), None]);
+        assert_eq!(cb.buf, vec![Some(0), None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 1);
         cb.push_back(1);
-        assert_eq!(cb.buf, vec![Some(0), Some(1)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(1)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.free(), 0);
         cb.push_back(2);
-        assert_eq!(cb.buf, vec![Some(2), Some(1)]);
+        assert_eq!(cb.buf, vec![Some(2), Some(1)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 0);
         cb.pop_front();
-        assert_eq!(cb.buf, vec![Some(2), None]);
+        assert_eq!(cb.buf, vec![Some(2), None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 1);
         cb.pop_front();
-        assert_eq!(cb.buf, vec![None, None]);
+        assert_eq!(cb.buf, vec![None, None].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 2);
@@ -760,35 +762,35 @@ mod tests {
     #[test]
     fn test_free_n3() {
         let mut cb = CircularBuffer::with_capacity(3);
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.free(), 3);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0), None, None]);
+        assert_eq!(cb.buf, vec![Some(0), None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 2);
         cb.push_front(1);
-        assert_eq!(cb.buf, vec![Some(0), None, Some(1)]);
+        assert_eq!(cb.buf, vec![Some(0), None, Some(1)].into());
         assert_eq!(cb.start, 2);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 1);
         cb.push_front(2);
-        assert_eq!(cb.buf, vec![Some(0), Some(2), Some(1)]);
+        assert_eq!(cb.buf, vec![Some(0), Some(2), Some(1)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 0);
         cb.pop_back();
-        assert_eq!(cb.buf, vec![None, Some(2), Some(1)]);
+        assert_eq!(cb.buf, vec![None, Some(2), Some(1)].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 0);
         assert_eq!(cb.free(), 1);
         cb.pop_back();
-        assert_eq!(cb.buf, vec![None, Some(2), None]);
+        assert_eq!(cb.buf, vec![None, Some(2), None].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 2);
         assert_eq!(cb.free(), 2);
         cb.pop_back();
-        assert_eq!(cb.buf, vec![None, None, None]);
+        assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 1);
         assert_eq!(cb.end, 1);
         assert_eq!(cb.free(), 3);
@@ -797,13 +799,13 @@ mod tests {
     #[test]
     fn test_grow_and_free() {
         let mut cb = CircularBuffer::with_capacity(1);
-        assert_eq!(cb.buf, vec![None]);
+        assert_eq!(cb.buf, vec![None].into());
         assert_eq!(cb.free(), 1);
         cb.push_back(0);
-        assert_eq!(cb.buf, vec![Some(0)]);
+        assert_eq!(cb.buf, vec![Some(0)].into());
         assert_eq!(cb.free(), 0);
         cb.grow(cb.capacity());
-        assert_eq!(cb.buf, vec![Some(0), None]);
+        assert_eq!(cb.buf, vec![Some(0), None].into());
         assert_eq!(cb.capacity(), 2);
         assert_eq!(cb.free(), 1);
     }

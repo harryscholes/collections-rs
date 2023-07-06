@@ -1,6 +1,6 @@
 use std::{collections::hash_map::DefaultHasher, hash::Hasher};
 
-use crate::hash_map::HashMap;
+use crate::{hash_map::HashMap, vector::Vector};
 
 type Digest = [u8; 8];
 
@@ -10,7 +10,7 @@ const DEFAULT_LEAF: Digest = [0; 8];
 pub struct MerkleTree {
     height: usize,
     values: HashMap<usize, Digest>,
-    default_nodes: Vec<Digest>,
+    default_nodes: Vector<Digest>,
 }
 
 impl MerkleTree {
@@ -70,7 +70,7 @@ impl MerkleTree {
 
     /// Time complexity: O(log n)
     /// Space complexity: O(log n)
-    pub fn path(&self, index: usize) -> Result<Vec<usize>, Error> {
+    pub fn path(&self, index: usize) -> Result<Vector<usize>, Error> {
         self.bounds_check(index)?;
 
         let sibling_indices = (0..self.height)
@@ -85,7 +85,7 @@ impl MerkleTree {
 
     /// Time complexity: O(log n)
     /// Space complexity: O(log n)
-    pub fn prove(&self, index: usize) -> Result<Vec<Digest>, Error> {
+    pub fn prove(&self, index: usize) -> Result<Vector<Digest>, Error> {
         let path = self.path(index)?;
 
         let proof = path
@@ -98,7 +98,7 @@ impl MerkleTree {
     }
 
     /// Time complexity: O(log n)
-    pub fn validate(&self, value: impl AsRef<[u8]>, proof: Vec<Digest>) -> Result<bool, Error> {
+    pub fn validate(&self, value: impl AsRef<[u8]>, proof: Vector<Digest>) -> Result<bool, Error> {
         if proof.len() != self.height {
             return Err(Error::IncorrectProofLength {
                 len: proof.len(),
@@ -120,7 +120,7 @@ impl MerkleTree {
     /// Space complexity: O(n)
     ///
     /// Returns the indicies whose value is `value`.
-    pub fn indicies_of(&self, value: impl AsRef<[u8]>) -> Option<Vec<usize>> {
+    pub fn indicies_of(&self, value: impl AsRef<[u8]>) -> Option<Vector<usize>> {
         let node = hash(value);
 
         let first_index = self.leaf_index(0);
@@ -130,9 +130,9 @@ impl MerkleTree {
             .iter()
             .filter(|(k, v)| **k > first_index && **v == node)
             .map(|(k, _)| *k - first_index)
-            .collect::<Vec<usize>>();
+            .collect::<Vector<usize>>();
 
-        indexes.sort_unstable();
+        indexes.sort();
 
         if !indexes.is_empty() {
             Some(indexes)
@@ -183,13 +183,13 @@ where
     hasher.finish().to_le_bytes()
 }
 
-fn default_nodes(default_leaf: Digest, height: usize) -> Vec<Digest> {
+fn default_nodes(default_leaf: Digest, height: usize) -> Vector<Digest> {
     let mut default_node = default_leaf;
-    let mut default_nodes = vec![default_node];
+    let mut default_nodes = Vector::from([default_node]);
 
     for _ in 0..height {
         default_node = hash_pair(default_node, default_node);
-        default_nodes.push(default_node);
+        default_nodes.push_back(default_node);
     }
 
     default_nodes
@@ -221,7 +221,7 @@ mod tests {
     fn default_nodes_height_0() {
         let nodes = default_nodes(DEFAULT_LEAF, 0);
         let expected_nodes = vec![DEFAULT_LEAF];
-        assert_eq!(nodes, expected_nodes);
+        assert_eq!(nodes, expected_nodes.into());
     }
 
     #[test]
@@ -229,7 +229,7 @@ mod tests {
         let nodes = default_nodes(DEFAULT_LEAF, 1);
         let height_1_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
         let expected_nodes = vec![DEFAULT_LEAF, height_1_node];
-        assert_eq!(nodes, expected_nodes);
+        assert_eq!(nodes, expected_nodes.into());
     }
 
     #[test]
@@ -238,14 +238,14 @@ mod tests {
         let height_1_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
         let height_2_node = hash_pair(height_1_node, height_1_node);
         let expected_nodes = vec![DEFAULT_LEAF, height_1_node, height_2_node];
-        assert_eq!(nodes, expected_nodes);
+        assert_eq!(nodes, expected_nodes.into());
     }
 
     #[test]
     fn empty_tree_height_0() {
         let tree = MerkleTree::new(0);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 0).pop().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 0).pop_back().unwrap();
         assert_eq!(root, expected_root);
     }
 
@@ -253,7 +253,7 @@ mod tests {
     fn empty_tree_height_1() {
         let tree = MerkleTree::new(1);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 1).pop().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 1).pop_back().unwrap();
         assert_eq!(root, expected_root);
     }
 
@@ -261,7 +261,7 @@ mod tests {
     fn empty_tree_height_32() {
         let tree = MerkleTree::new(32);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 32).pop().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_back().unwrap();
         assert_eq!(root, expected_root);
     }
 
@@ -335,13 +335,13 @@ mod tests {
         tree.insert(0, "a").unwrap();
         let proof = tree.prove(0).unwrap();
         let expected_proof = vec![DEFAULT_LEAF];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("a", proof).unwrap());
 
         tree.insert(1, "b").unwrap();
         let proof = tree.prove(1).unwrap();
         let expected_proof = vec![hash("a")];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("b", proof).unwrap());
     }
 
@@ -352,25 +352,25 @@ mod tests {
         tree.insert(3, "d").unwrap();
         let proof = tree.prove(3).unwrap();
         let expected_proof = vec![DEFAULT_LEAF, hash_pair(DEFAULT_LEAF, DEFAULT_LEAF)];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("d", proof).unwrap());
 
         tree.insert(1, "b").unwrap();
         let proof = tree.prove(1).unwrap();
         let expected_proof = vec![DEFAULT_LEAF, hash_pair(DEFAULT_LEAF, hash("d"))];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("b", proof).unwrap());
 
         tree.insert(2, "c").unwrap();
         let proof = tree.prove(2).unwrap();
         let expected_proof = vec![hash("d"), hash_pair(DEFAULT_LEAF, hash("b"))];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("c", proof).unwrap());
 
         tree.insert(0, "a").unwrap();
         let proof = tree.prove(0).unwrap();
         let expected_proof = vec![hash("b"), hash_pair(hash("c"), hash("d"))];
-        assert_eq!(proof, expected_proof);
+        assert_eq!(proof, expected_proof.into());
         assert!(tree.validate("a", proof).unwrap());
     }
 
@@ -383,16 +383,16 @@ mod tests {
         let tree = MerkleTree::new(2);
 
         let proof = tree.path(0).unwrap();
-        assert_eq!(proof, [5, 3]);
+        assert_eq!(proof, [5, 3].into());
 
         let proof = tree.path(1).unwrap();
-        assert_eq!(proof, [4, 3]);
+        assert_eq!(proof, [4, 3].into());
 
         let proof = tree.path(2).unwrap();
-        assert_eq!(proof, [7, 2]);
+        assert_eq!(proof, [7, 2].into());
 
         let proof = tree.path(3).unwrap();
-        assert_eq!(proof, [6, 2]);
+        assert_eq!(proof, [6, 2].into());
     }
 
     #[test]
@@ -405,10 +405,10 @@ mod tests {
         let tree = MerkleTree::new(3);
 
         let proof = tree.path(0).unwrap();
-        assert_eq!(proof, [9, 5, 3]);
+        assert_eq!(proof, [9, 5, 3].into());
 
         let proof = tree.path(7).unwrap();
-        assert_eq!(proof, [14, 6, 2]);
+        assert_eq!(proof, [14, 6, 2].into());
     }
 
     #[test]
@@ -428,14 +428,14 @@ mod tests {
     fn proof_length_check() {
         assert_eq!(
             MerkleTree::new(1)
-                .validate("empty_proof", vec![])
+                .validate("empty_proof", Vector::new())
                 .unwrap_err(),
             Error::IncorrectProofLength { len: 0, height: 1 }
         );
 
         assert_eq!(
             MerkleTree::new(1)
-                .validate("empty_proof", vec![DEFAULT_LEAF, DEFAULT_LEAF])
+                .validate("empty_proof", Vector::from([DEFAULT_LEAF, DEFAULT_LEAF]))
                 .unwrap_err(),
             Error::IncorrectProofLength { len: 2, height: 1 }
         );
@@ -448,12 +448,12 @@ mod tests {
         tree.insert(1, "a").unwrap();
         let indexes = tree.indicies_of("a").unwrap();
         let expected_indexes = vec![1];
-        assert_eq!(indexes, expected_indexes);
+        assert_eq!(indexes, expected_indexes.into());
 
         tree.insert(3, "a").unwrap();
         let indexes = tree.indicies_of("a").unwrap();
         let expected_indexes = vec![1, 3];
-        assert_eq!(indexes, expected_indexes);
+        assert_eq!(indexes, expected_indexes.into());
 
         assert!(tree.indicies_of("not_in").is_none());
     }

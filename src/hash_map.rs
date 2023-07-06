@@ -1,4 +1,4 @@
-use crate::linked_list::LinkedList;
+use crate::{linked_list::LinkedList, vector::Vector};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -8,15 +8,15 @@ const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct HashMap<K, V> {
-    buckets: Vec<Option<Bucket<K, V>>>,
+    buckets: Vector<Option<Bucket<K, V>>>,
     len: usize,
 }
 
 type Bucket<K, V> = LinkedList<Node<K, V>>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct Node<K, V> {
     key: K,
     value: V,
@@ -34,7 +34,7 @@ where
     /// Time complexity: O(1)
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            buckets: (0..capacity).map(|_| None).collect(),
+            buckets: (0..capacity.max(1)).map(|_| None).collect(),
             len: 0,
         }
     }
@@ -92,7 +92,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn get(&self, key: &K) -> Option<&'_ V> {
+    pub fn get(&self, key: &K) -> Option<&V> {
         match &self.buckets[self.bucket_index(key)] {
             Some(ll) => {
                 for node in ll {
@@ -434,36 +434,36 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let mut hm = HashMap::new();
+        let mut hm: HashMap<&str, &str> = HashMap::new();
 
-        let vec = hm.clone().into_iter().collect::<Vec<_>>();
+        let vec = hm.iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![]);
 
         let key_1 = "key_1";
         let value_1 = "value_1";
         hm.insert(key_1, value_1);
-        let vec = hm.clone().into_iter().collect::<Vec<_>>();
-        assert_eq!(vec, vec![(key_1, value_1)]);
+        let vec = hm.iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![(&key_1, &value_1)]);
 
         let key_2 = "key_2";
         let value_2 = "value_2";
         hm.insert(key_2, value_2);
-        let mut vec = hm.clone().into_iter().collect::<Vec<_>>();
+        let mut vec = hm.iter().collect::<Vec<_>>();
         vec.sort();
-        assert_eq!(vec, vec![(key_1, value_1), (key_2, value_2)]);
+        assert_eq!(vec, vec![(&key_1, &value_1), (&key_2, &value_2)]);
 
         let new_value_1 = "new_value_1";
         hm.insert(key_1, new_value_1);
-        let mut vec = hm.clone().into_iter().collect::<Vec<_>>();
+        let mut vec = hm.iter().collect::<Vec<_>>();
         vec.sort();
-        assert_eq!(vec, vec![(key_1, new_value_1), (key_2, value_2),]);
+        assert_eq!(vec, vec![(&key_1, &new_value_1), (&key_2, &value_2),]);
 
         hm.remove(&key_1);
-        let vec = hm.clone().into_iter().collect::<Vec<_>>();
-        assert_eq!(vec, vec![(key_2, value_2)]);
+        let vec = hm.iter().collect::<Vec<_>>();
+        assert_eq!(vec, vec![(&key_2, &value_2)]);
 
         hm.remove(&key_2);
-        let vec = hm.clone().into_iter().collect::<Vec<_>>();
+        let vec = hm.iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![]);
     }
 
@@ -482,7 +482,7 @@ mod tests {
         hm.buckets[0] = Some(first_bucket);
         hm.buckets[DEFAULT_CAPACITY - 1] = Some(last_bucket);
 
-        let vec = hm.clone().into_iter().collect::<Vec<_>>();
+        let vec = hm.into_iter().collect::<Vec<_>>();
         assert_eq!(vec, vec![(0, 0), (1, 1), (2, 2), (3, 3)]);
     }
 
