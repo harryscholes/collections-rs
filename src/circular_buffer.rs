@@ -10,6 +10,7 @@ pub struct CircularBuffer<T> {
 
 impl<T> CircularBuffer<T> {
     pub fn with_capacity(capacity: usize) -> Self {
+        assert!(capacity > 0);
         Self::from_vec((0..capacity).map(|_| None).collect())
     }
 
@@ -72,13 +73,9 @@ impl<T> CircularBuffer<T> {
 
     /// Time complexity: O(1)
     pub fn last(&self) -> Option<&T> {
-        if self.is_empty() {
-            None
-        } else {
-            match self.buf.get(self.decrement(self.end)).as_ref() {
-                Some(Some(el)) => Some(el),
-                _ => None,
-            }
+        match self.buf.get(self.decrement(self.end)).as_ref() {
+            Some(Some(el)) => Some(el),
+            _ => None,
         }
     }
 
@@ -311,6 +308,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn test_with_capacity_0() {
+        CircularBuffer::<usize>::with_capacity(0);
+    }
+
+    #[test]
     fn test_from_iter() {
         let cb = CircularBuffer::from_iter(0..=2);
         assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
@@ -324,16 +327,6 @@ mod tests {
         assert_eq!(cb.buf, vec![Some(0), Some(1), Some(2)].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_push_back_n0() {
-        let mut cb = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.buf, vec![].into());
-        assert_eq!(cb.start, 0);
-        assert_eq!(cb.end, 0);
-        cb.push_back(0);
     }
 
     #[test]
@@ -401,13 +394,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn test_push_front_n0() {
-        let mut cb = CircularBuffer::with_capacity(0);
-        cb.push_front(0);
-    }
-
-    #[test]
     fn test_push_front_n1() {
         let mut cb = CircularBuffer::with_capacity(1);
         assert_eq!(cb.buf, vec![None].into());
@@ -452,12 +438,6 @@ mod tests {
     }
 
     #[test]
-    fn test_pop_back_n0() {
-        let mut cb: CircularBuffer<usize> = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.pop_back(), None);
-    }
-
-    #[test]
     fn test_pop_back_n1() {
         let mut cb = CircularBuffer::from_iter(0..=0);
         assert_eq!(cb.buf, vec![Some(0)].into());
@@ -495,12 +475,6 @@ mod tests {
         assert_eq!(cb.buf, vec![None, None, None].into());
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 0);
-    }
-
-    #[test]
-    fn test_pop_front_n0() {
-        let mut cb: CircularBuffer<usize> = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.pop_front(), None);
     }
 
     #[test]
@@ -545,9 +519,6 @@ mod tests {
 
     #[test]
     fn test_first() {
-        let cb: CircularBuffer<usize> = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.first(), None);
-
         let mut cb = CircularBuffer::with_capacity(2);
         assert!(cb.first().is_none());
         for el in 0..=10 {
@@ -558,9 +529,6 @@ mod tests {
 
     #[test]
     fn test_last() {
-        let cb: CircularBuffer<usize> = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.last(), None);
-
         let mut cb = CircularBuffer::with_capacity(2);
         assert!(cb.last().is_none());
         for el in 0..=10 {
@@ -686,9 +654,7 @@ mod tests {
 
     #[test]
     fn test_grow() {
-        let mut cb = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.buf, vec![].into());
-        cb.grow(1);
+        let mut cb = CircularBuffer::with_capacity(1);
         assert_eq!(cb.buf, vec![None].into());
         cb.grow(1);
         assert_eq!(cb.buf, vec![None, None].into());
@@ -717,12 +683,6 @@ mod tests {
         cb.grow(2);
         assert_eq!(cb.start, 0);
         assert_eq!(cb.end, 2);
-    }
-
-    #[test]
-    fn test_free_n0() {
-        let cb: CircularBuffer<usize> = CircularBuffer::with_capacity(0);
-        assert_eq!(cb.free(), 0);
     }
 
     #[test]
