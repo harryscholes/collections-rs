@@ -25,59 +25,111 @@ impl<T> CircularBuffer<T> {
 
     /// Time complexity: O(1)
     pub fn push_back(&mut self, el: T) {
-        if self.buf[self.end].replace(el).is_some() {
+        if self.is_full() {
             self.increment_start();
         }
+        self.buf[self.end] = Some(el);
         self.increment_end();
     }
 
     /// Time complexity: O(1)
     pub fn push_front(&mut self, el: T) {
-        self.decrement_start();
-        if self.buf[self.start].replace(el).is_some() {
+        if self.is_full() {
             self.decrement_end();
         }
+        self.decrement_start();
+        self.buf[self.start] = Some(el);
     }
 
     /// Time complexity: O(1)
     pub fn pop_back(&mut self) -> Option<T> {
-        match self.buf.is_empty() {
-            false => {
-                self.decrement_end();
-                self.buf[self.end].take().or_else(|| {
-                    self.increment_end();
-                    None
-                })
-            }
-            true => None,
+        if self.is_empty() {
+            None
+        } else {
+            self.decrement_end();
+            self.buf[self.end].take()
         }
     }
 
     /// Time complexity: O(1)
     pub fn pop_front(&mut self) -> Option<T> {
-        match self.buf.is_empty() {
-            false => self.buf[self.start].take().map(|el| {
-                self.increment_start();
-                el
-            }),
-            true => None,
+        if self.is_empty() {
+            None
+        } else {
+            let el = self.buf[self.start].take();
+            self.increment_start();
+            el
         }
     }
 
     /// Time complexity: O(1)
     pub fn first(&self) -> Option<&T> {
-        match self.buf.is_empty() {
-            false => self.buf[self.start].as_ref(),
-            true => None,
+        match self.buf.get(self.start).as_ref() {
+            Some(Some(el)) => Some(el),
+            _ => None,
         }
     }
 
     /// Time complexity: O(1)
     pub fn last(&self) -> Option<&T> {
-        match self.buf.is_empty() {
-            false => self.buf[self.decrement(self.end)].as_ref(),
-            true => None,
+        if self.is_empty() {
+            None
+        } else {
+            match self.buf.get(self.decrement(self.end)).as_ref() {
+                Some(Some(el)) => Some(el),
+                _ => None,
+            }
         }
+    }
+
+    /// Time complexity: O(n)
+    pub fn grow(&mut self, by: usize) {
+        if !self.is_empty() {
+            self.buf.rotate_left(self.start);
+            self.end = if self.end == self.start {
+                self.buf.len()
+            } else {
+                sub_mod(self.end, self.start, self.buf.len())
+            };
+            self.start = 0;
+        }
+        self.buf
+            .extend((0..by).map(|_| None).collect::<Vector<_>>());
+    }
+
+    /// Time complexity: O(1)
+    fn decrement(&self, index: usize) -> usize {
+        sub_mod(index, 1, self.buf.len())
+    }
+
+    /// Time complexity: O(1)
+    fn increment(&self, index: usize) -> usize {
+        add_mod(index, 1, self.buf.len())
+    }
+
+    /// Time complexity: O(1)
+    fn increment_start(&mut self) {
+        self.start = self.increment(self.start)
+    }
+
+    /// Time complexity: O(1)
+    fn decrement_start(&mut self) {
+        self.start = self.decrement(self.start)
+    }
+
+    /// Time complexity: O(1)
+    fn increment_end(&mut self) {
+        self.end = self.increment(self.end)
+    }
+
+    /// Time complexity: O(1)
+    fn decrement_end(&mut self) {
+        self.end = self.decrement(self.end)
+    }
+
+    /// Time complexity: O(n)
+    pub fn iter(&self) -> Iter<T> {
+        Iter::new(self)
     }
 
     /// Time complexity: O(1)
@@ -103,63 +155,30 @@ impl<T> CircularBuffer<T> {
         }
     }
 
-    /// Time complexity: O(n)
-    pub fn grow(&mut self, n: usize) {
-        if !self.buf.is_empty() {
-            self.buf.rotate_left(self.start);
-            self.end = if self.end == self.start {
-                self.buf.len()
-            } else {
-                sub_mod(self.end, self.start, self.buf.len())
-            };
-            self.start = 0;
-        }
-        self.buf.extend((0..n).map(|_| None).collect::<Vector<_>>());
-    }
-
-    fn decrement(&self, index: usize) -> usize {
-        sub_mod(index, 1, self.buf.len())
-    }
-
-    fn increment(&self, index: usize) -> usize {
-        add_mod(index, 1, self.buf.len())
-    }
-
-    fn increment_start(&mut self) {
-        self.start = self.increment(self.start)
-    }
-
-    fn decrement_start(&mut self) {
-        self.start = self.decrement(self.start)
-    }
-
-    fn increment_end(&mut self) {
-        self.end = self.increment(self.end)
-    }
-
-    fn decrement_end(&mut self) {
-        self.end = self.decrement(self.end)
-    }
-
-    pub fn iter(&self) -> Iter<'_, T> {
-        Iter::new(self)
-    }
-
+    /// Time complexity: O(1)
     pub fn len(&self) -> usize {
         self.capacity() - self.free()
     }
 
+    /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Time complexity: O(1)
+    pub fn is_full(&self) -> bool {
+        self.free() == 0
+    }
 }
 
+/// Time complexity: O(1)
 fn add_mod(x: usize, y: usize, modulus: usize) -> usize {
     (x + y) % modulus
 }
 
+/// Time complexity: O(1)
 fn sub_mod(x: usize, y: usize, modulus: usize) -> usize {
-    (modulus + x - y) % modulus
+    ((modulus + x).saturating_sub(y)) % modulus
 }
 
 impl<T> FromIterator<T> for CircularBuffer<T> {
@@ -183,28 +202,18 @@ where
     }
 }
 
-/// Trip double-ended iteration if `forward_index` and `back_index` are equal
-macro_rules! trip_iteration {
-    ($self:ident, $forward_index:ident, $back_index:ident) => {
-        if $self.$forward_index == $self.$back_index {
-            $self.$forward_index = None;
-            $self.$back_index = None;
-        }
-    };
-}
-
 pub struct Iter<'a, T> {
-    cb: &'a CircularBuffer<T>,
-    forward_index: Option<usize>,
-    back_index: Option<usize>,
+    cb: Option<&'a CircularBuffer<T>>,
+    forward_index: usize,
+    back_index: usize,
 }
 
 impl<'a, T> Iter<'a, T> {
     fn new(cb: &'a CircularBuffer<T>) -> Self {
         Self {
-            forward_index: Some(cb.start),
-            back_index: Some(cb.end),
-            cb,
+            forward_index: cb.start,
+            back_index: cb.end,
+            cb: Some(cb),
         }
     }
 }
@@ -213,11 +222,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.forward_index {
-            Some(forward_index) => {
-                let el = self.cb.buf[forward_index].as_ref();
-                self.forward_index = Some(self.cb.increment(forward_index));
-                trip_iteration!(self, forward_index, back_index);
+        match self.cb {
+            Some(cb) => {
+                let el = cb.buf[self.forward_index].as_ref();
+                self.forward_index = cb.increment(self.forward_index);
+                if self.forward_index == self.back_index {
+                    self.cb = None
+                }
                 el
             }
             None => None,
@@ -227,12 +238,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.back_index {
-            Some(back_index) => {
-                let back_index = self.cb.decrement(back_index);
-                let el = self.cb.buf[back_index].as_ref();
-                self.back_index = Some(back_index);
-                trip_iteration!(self, forward_index, back_index);
+        match self.cb {
+            Some(cb) => {
+                self.back_index = cb.decrement(self.back_index);
+                let el = cb.buf[self.back_index].as_ref();
+                if self.forward_index == self.back_index {
+                    self.cb = None
+                }
                 el
             }
             None => None,
@@ -820,6 +832,20 @@ mod tests {
         assert_eq!(cb.len(), 2);
         cb.push_back(2);
         assert_eq!(cb.len(), 2);
+    }
+
+    #[test]
+    fn test_is_full() {
+        let mut cb = CircularBuffer::with_capacity(2);
+        assert!(!cb.is_full());
+        cb.push_back(0);
+        assert!(!cb.is_full());
+        cb.push_back(1);
+        assert!(cb.is_full());
+        cb.push_back(2);
+        assert!(cb.is_full());
+        cb.pop_front();
+        assert!(!cb.is_full());
     }
 
     #[test]
