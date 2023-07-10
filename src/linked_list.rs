@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ptr::NonNull};
+use std::{marker::PhantomData, ops::Index, ptr::NonNull};
 
 /// Space complexity: O(n)
 #[derive(Debug, Eq)]
@@ -200,6 +200,14 @@ impl<T> LinkedList<T> {
 impl<T> Default for LinkedList<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T> Index<usize> for LinkedList<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.iter().nth(index).expect("index out of bounds")
     }
 }
 
@@ -767,5 +775,23 @@ mod tests {
         let l = LinkedList::from([1, 2, 3]);
         let c = l.clone();
         assert_eq!(l, c);
+    }
+
+    #[test]
+    fn test_index() {
+        let mut l = LinkedList::new();
+        l.push_back(0);
+        l.push_back(1);
+        assert_eq!(l[0], 0);
+        assert_eq!(l[1], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_out_of_bounds() {
+        let mut l = LinkedList::new();
+        l.push_back(0);
+        l.push_back(1);
+        l[2];
     }
 }
