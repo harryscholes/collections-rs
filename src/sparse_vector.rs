@@ -1,5 +1,5 @@
 use crate::hash_map::HashMap;
-use std::iter::FusedIterator;
+use std::{iter::FusedIterator, ops::Index};
 
 // Space complexity: O(d)
 #[derive(Debug)]
@@ -133,6 +133,14 @@ where
 }
 
 impl<T> Eq for SparseVector<T> where T: Eq {}
+
+impl<T> Index<usize> for SparseVector<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("index out of range")
+    }
+}
 
 pub struct Iter<'a, T> {
     sv: Option<&'a SparseVector<T>>,
@@ -415,5 +423,14 @@ mod tests {
         assert_ne!(x, y);
         y.insert(3, 3);
         assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_index() {
+        let sv = SparseVector::from([0, 1, 0, 3]);
+        assert_eq!(sv[0], 0);
+        assert_eq!(sv[1], 1);
+        assert_eq!(sv[2], 0);
+        assert_eq!(sv[3], 3);
     }
 }
