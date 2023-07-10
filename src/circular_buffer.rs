@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use crate::vector::Vector;
 
 /// Space complexity: O(n)
@@ -60,6 +62,16 @@ impl<T> CircularBuffer<T> {
             let el = self.buf[self.start].take();
             self.increment_start();
             el
+        }
+    }
+
+    /// Time complexity: O(1)
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len() {
+            None
+        } else {
+            let circular_index = add_mod(self.start, index, self.buf.len());
+            self.buf[circular_index].as_ref()
         }
     }
 
@@ -199,18 +211,28 @@ where
     }
 }
 
+impl<T> Index<usize> for CircularBuffer<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("index out of range")
+    }
+}
+
 pub struct Iter<'a, T> {
-    cb: Option<&'a CircularBuffer<T>>,
+    cb: &'a CircularBuffer<T>,
     forward_index: usize,
     back_index: usize,
+    finished: bool,
 }
 
 impl<'a, T> Iter<'a, T> {
     fn new(cb: &'a CircularBuffer<T>) -> Self {
         Self {
-            forward_index: cb.start,
-            back_index: cb.end,
-            cb: Some(cb),
+            forward_index: 0,
+            back_index: cb.len() - 1,
+            cb,
+            finished: false,
         }
     }
 }
@@ -219,32 +241,32 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.cb {
-            Some(cb) => {
-                let el = cb.buf[self.forward_index].as_ref();
-                self.forward_index = cb.increment(self.forward_index);
-                if self.forward_index == self.back_index {
-                    self.cb = None
-                }
-                el
+        if self.finished {
+            None
+        } else {
+            let el = self.cb.get(self.forward_index);
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.forward_index += 1;
             }
-            None => None,
+            el
         }
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.cb {
-            Some(cb) => {
-                self.back_index = cb.decrement(self.back_index);
-                let el = cb.buf[self.back_index].as_ref();
-                if self.forward_index == self.back_index {
-                    self.cb = None
-                }
-                el
+        if self.finished {
+            None
+        } else {
+            let el = self.cb.get(self.back_index);
+            if self.back_index == self.forward_index {
+                self.finished = true;
+            } else {
+                self.back_index -= 1;
             }
-            None => None,
+            el
         }
     }
 }
@@ -820,5 +842,80 @@ mod tests {
         let mut cb = CircularBuffer::from_iter(0..=2);
         cb.pop_front();
         assert_eq!(cb, CircularBuffer::from_iter(1..=2));
+    }
+
+    #[test]
+    fn test_get() {
+        let cb = CircularBuffer::from_iter(0..=2);
+        assert_eq!(cb.get(0), Some(&0));
+        assert_eq!(cb.get(1), Some(&1));
+        assert_eq!(cb.get(2), Some(&2));
+    }
+
+    #[test]
+    fn test_get_start_gt_end() {
+        let cb = CircularBuffer {
+            buf: Vector::from([Some(1), Some(2), Some(0)]),
+            start: 2,
+            end: 2,
+        };
+        assert_eq!(cb.get(0), Some(&0));
+        assert_eq!(cb.get(1), Some(&1));
+        assert_eq!(cb.get(2), Some(&2));
+    }
+
+    #[test]
+    fn test_get_buffer_not_full() {
+        let mut cb = CircularBuffer::with_capacity(2);
+        cb.push_back(0);
+        assert_eq!(cb.get(0), Some(&0));
+        assert_eq!(cb.get(1), None);
+    }
+
+    #[test]
+    fn test_get_start_gt_end_buffer_not_full() {
+        let cb = CircularBuffer {
+            buf: Vector::from([Some(1), None, Some(0)]),
+            start: 2,
+            end: 2,
+        };
+        assert_eq!(cb.get(0), Some(&0));
+        assert_eq!(cb.get(1), Some(&1));
+        assert_eq!(cb.get(2), None);
+    }
+
+    #[test]
+    fn test_index() {
+        let cb = CircularBuffer::from_iter(0..=2);
+        assert_eq!(cb[0], 0);
+        assert_eq!(cb[1], 1);
+        assert_eq!(cb[2], 2);
+    }
+
+    #[test]
+    fn test_index_start_gt_end() {
+        let cb = CircularBuffer {
+            buf: Vector::from([Some(1), Some(2), Some(0)]),
+            start: 2,
+            end: 2,
+        };
+        assert_eq!(cb[0], 0);
+        assert_eq!(cb[1], 1);
+        assert_eq!(cb[2], 2);
+    }
+
+    #[test]
+    fn test_index_buffer_not_full() {
+        let mut cb = CircularBuffer::with_capacity(2);
+        cb.push_back(0);
+        assert_eq!(cb[0], 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_buffer_not_full_index_out_of_bounds() {
+        let mut cb = CircularBuffer::with_capacity(2);
+        cb.push_back(0);
+        assert_eq!(cb[1], 1);
     }
 }
