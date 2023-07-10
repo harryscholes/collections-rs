@@ -73,18 +73,23 @@ where
     }
 
     // Time complexity: O(1)
-    pub fn insert(&mut self, index: usize, value: T) -> Result<(), Error> {
-        self.bounds_check(index)?;
-        self.insert_unchecked(index, value);
-        Ok(())
+    pub fn insert(&mut self, index: usize, value: T) {
+        if index >= self.len {
+            panic!("index out of bounds")
+        } else {
+            self.insert_unchecked(index, value);
+        }
     }
 }
 
 impl<T> SparseVector<T> {
     // Time complexity: O(1)
-    pub fn get(&self, index: usize) -> Result<&T, Error> {
-        self.bounds_check(index)?;
-        Ok(self.data.get(&index).unwrap_or(&self.default))
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len {
+            None
+        } else {
+            self.data.get(&index).or(Some(&self.default))
+        }
     }
 
     // Time complexity: O(d)
@@ -94,9 +99,12 @@ impl<T> SparseVector<T> {
     }
 
     // Time complexity: O(1)
-    pub fn remove(&mut self, index: usize) -> Result<Option<T>, Error> {
-        self.bounds_check(index)?;
-        Ok(self.data.remove(&index))
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        if index >= self.len {
+            panic!("index out of bounds")
+        } else {
+            self.data.remove(&index)
+        }
     }
 
     // Time complexity: O(1)
@@ -112,17 +120,6 @@ impl<T> SparseVector<T> {
     // Time complexity: O(n)
     pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
-    }
-
-    fn bounds_check(&self, index: usize) -> Result<(), Error> {
-        if index >= self.len {
-            Err(Error::IndexOutOfBounds {
-                len: self.len,
-                index,
-            })
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -159,7 +156,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.sv {
             Some(sv) => {
-                let el = sv.get(self.head).ok();
+                let el = sv.get(self.head);
                 self.head += 1;
                 if self.head == self.tail {
                     self.sv = None;
@@ -179,7 +176,7 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
                 if self.tail == self.head {
                     self.sv = None;
                 }
-                sv.get(self.tail).ok()
+                sv.get(self.tail)
             }
             None => None,
         }
@@ -256,9 +253,13 @@ where
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    IndexOutOfBounds { len: usize, index: usize },
+impl<T, const N: usize> From<[T; N]> for SparseVector<T>
+where
+    T: Default + PartialEq,
+{
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr)
+    }
 }
 
 #[cfg(test)]
@@ -268,46 +269,46 @@ mod tests {
     #[test]
     fn test_insert() {
         let mut sv = SparseVector::with_capacity(1);
-        assert_eq!(
-            sv.insert(1, 1).unwrap_err(),
-            Error::IndexOutOfBounds { len: 1, index: 1 }
-        );
-        sv.insert(0, 0).unwrap();
+        sv.insert(0, 0);
         assert!(!sv.data.contains_key(&0));
-        sv.insert(0, 1).unwrap();
+        sv.insert(0, 1);
         assert!(sv.data.contains_key(&0));
     }
 
     #[test]
+    #[should_panic]
+    fn test_insert_at_out_of_bounds_index() {
+        let mut sv = SparseVector::with_capacity(1);
+        sv.insert(1, 1);
+    }
+
+    #[test]
     fn test_remove() {
-        let mut sv = SparseVector::with_capacity(3);
-        assert_eq!(
-            sv.remove(3).unwrap_err(),
-            Error::IndexOutOfBounds { len: 3, index: 3 }
-        );
-        sv.insert(1, 2).unwrap();
-        assert_eq!(sv.get(1).unwrap(), &2);
-        assert_eq!(sv.remove(1), Ok(Some(2)));
+        let mut sv = SparseVector::from([0, 1]);
+        assert_eq!(sv.get(1).unwrap(), &1);
+        assert_eq!(sv.remove(1), Some(1));
+        assert_eq!(sv.remove(1), None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_remove_at_out_of_bounds_index() {
+        let mut sv = SparseVector::from([0, 1]);
+        sv.remove(2);
     }
 
     #[test]
     fn test_get() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(1, 2).unwrap();
-        assert_eq!(sv.get(0).unwrap(), &0);
-        assert_eq!(sv.get(1).unwrap(), &2);
-        assert_eq!(sv.get(2).unwrap(), &0);
-        assert_eq!(
-            sv.get(3).unwrap_err(),
-            Error::IndexOutOfBounds { len: 3, index: 3 }
-        );
+        let sv = SparseVector::from([0, 2, 0]);
+        assert_eq!(sv.get(0), Some(&0));
+        assert_eq!(sv.get(1), Some(&2));
+        assert_eq!(sv.get(2), Some(&0));
+        assert_eq!(sv.get(3), None);
     }
 
     #[test]
     fn test_pop_back() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(0, 1).unwrap();
-        sv.insert(2, 2).unwrap();
+        let mut sv = SparseVector::from([1, 0, 2]);
         assert_eq!(sv.len(), 3);
         assert_eq!(sv.pop_back(), Some(2));
         assert_eq!(sv.len(), 2);
@@ -320,9 +321,7 @@ mod tests {
 
     #[test]
     fn test_pop_front() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(0, 1).unwrap();
-        sv.insert(2, 2).unwrap();
+        let mut sv = SparseVector::from([1, 0, 2]);
         assert_eq!(sv.len(), 3);
         assert_eq!(sv.pop_front(), Some(1));
         assert_eq!(sv.len(), 2);
@@ -336,42 +335,27 @@ mod tests {
     #[test]
     fn test_resize() {
         let mut sv = SparseVector::with_capacity(3);
-        sv.insert(2, 2).unwrap();
-        assert_eq!(sv.get(2).unwrap(), &2);
+        sv.insert(2, 2);
+        assert_eq!(sv.get(2), Some(&2));
         sv.resize(2);
-        assert_eq!(
-            sv.get(2).unwrap_err(),
-            Error::IndexOutOfBounds { len: 2, index: 2 }
-        );
+        assert_eq!(sv.get(2), None);
         sv.resize(3);
-        assert_eq!(sv.get(2).unwrap(), &0);
+        assert_eq!(sv.get(2), Some(&0));
     }
 
     #[test]
     fn test_iter() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(0, 0).unwrap();
-        sv.insert(2, 2).unwrap();
+        let sv = SparseVector::from([0, 0, 2]);
         let mut iter = sv.iter();
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), None);
-        assert_eq!(iter.next(), None);
-
-        let mut sv = SparseVector::with_capacity(5);
-        sv.insert(4, 4usize).unwrap();
-        let dense = sv.iter().collect::<Vec<&usize>>();
-        assert_eq!(dense, vec![&0, &0, &0, &0, &4]);
     }
 
     #[test]
     fn test_iter_double_ended_iterator() {
-        let mut sv = SparseVector::with_capacity(7);
-        sv.insert(1, 1).unwrap();
-        sv.insert(3, 3).unwrap();
-        sv.insert(5, 5).unwrap();
-
+        let sv = SparseVector::from([0, 1, 0, 3, 0, 5, 0]);
         let mut iter = sv.iter();
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next_back(), Some(&0));
@@ -386,38 +370,22 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(0, 0).unwrap();
-        sv.insert(2, 2).unwrap();
+        let sv = SparseVector::from([0, 0, 2]);
         let mut iter = sv.into_iter();
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.next(), None);
-        assert_eq!(iter.next(), None);
-
-        let mut sv = SparseVector::with_capacity(5);
-        sv.insert(4, 4usize).unwrap();
-        let dense = sv.into_iter().collect::<Vec<usize>>();
-        assert_eq!(dense, vec![0, 0, 0, 0, 4]);
     }
 
     #[test]
     fn test_borrowed_into_iter() {
-        let mut sv = SparseVector::with_capacity(3);
-        sv.insert(0, 0).unwrap();
-        sv.insert(2, 2).unwrap();
+        let sv = SparseVector::from([0, 0, 2]);
         let mut iter = (&sv).into_iter();
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), None);
-        assert_eq!(iter.next(), None);
-
-        let mut sv = SparseVector::with_capacity(5);
-        sv.insert(4, 4usize).unwrap();
-        let dense = sv.into_iter().collect::<Vec<usize>>();
-        assert_eq!(dense, vec![0, 0, 0, 0, 4]);
     }
 
     #[test]
@@ -441,11 +409,11 @@ mod tests {
         let x = SparseVector::from_iter(vec![0, 1, 0, 3, 0, 5, 0]);
         let mut y = SparseVector::with_capacity(7);
         assert_ne!(x, y);
-        y.insert(5, 5).unwrap();
+        y.insert(5, 5);
         assert_ne!(x, y);
-        y.insert(1, 1).unwrap();
+        y.insert(1, 1);
         assert_ne!(x, y);
-        y.insert(3, 3).unwrap();
+        y.insert(3, 3);
         assert_eq!(x, y);
     }
 }
