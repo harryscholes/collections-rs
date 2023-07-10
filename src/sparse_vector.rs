@@ -143,17 +143,19 @@ impl<T> Index<usize> for SparseVector<T> {
 }
 
 pub struct Iter<'a, T> {
-    sv: Option<&'a SparseVector<T>>,
-    head: usize,
-    tail: usize,
+    sv: &'a SparseVector<T>,
+    forward_index: usize,
+    back_index: usize,
+    finished: bool,
 }
 
 impl<'a, T> Iter<'a, T> {
     fn new(sv: &'a SparseVector<T>) -> Self {
         Self {
-            sv: Some(sv),
-            head: 0,
-            tail: sv.len,
+            forward_index: 0,
+            back_index: sv.len - 1,
+            sv,
+            finished: false,
         }
     }
 }
@@ -162,31 +164,32 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.sv {
-            Some(sv) => {
-                let el = sv.get(self.head);
-                self.head += 1;
-                if self.head == self.tail {
-                    self.sv = None;
-                }
-                el
+        if self.finished {
+            None
+        } else {
+            let el = self.sv.get(self.forward_index);
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.forward_index += 1;
             }
-            None => None,
+            el
         }
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.sv {
-            Some(sv) => {
-                self.tail -= 1;
-                if self.tail == self.head {
-                    self.sv = None;
-                }
-                sv.get(self.tail)
+        if self.finished {
+            None
+        } else {
+            let el = self.sv.get(self.back_index);
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.back_index -= 1;
             }
-            None => None,
+            el
         }
     }
 }
@@ -362,6 +365,16 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_rev() {
+        let sv = SparseVector::from([0, 0, 2]);
+        let mut iter = sv.iter().rev();
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), Some(&0));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
     fn test_iter_double_ended_iterator() {
         let sv = SparseVector::from([0, 1, 0, 3, 0, 5, 0]);
         let mut iter = sv.iter();
@@ -383,6 +396,16 @@ mod tests {
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_into_iter_rev() {
+        let sv = SparseVector::from([0, 0, 2]);
+        let mut iter = sv.into_iter().rev();
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), None);
     }
 

@@ -355,16 +355,18 @@ impl<T> IndexMut<usize> for Vector<T> {
 
 pub struct Iter<'a, T> {
     vec: &'a Vector<T>,
-    head: usize,
-    tail: usize,
+    forward_index: usize,
+    back_index: usize,
+    finished: bool,
 }
 
 impl<'a, T> Iter<'a, T> {
     fn new(vec: &'a Vector<T>) -> Self {
         Self {
-            head: 0,
-            tail: vec.len - 1,
+            forward_index: 0,
+            back_index: vec.len - 1,
             vec,
+            finished: false,
         }
     }
 }
@@ -373,24 +375,32 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.head > self.tail {
+        if self.finished {
             None
         } else {
-            let el = unsafe { self.vec.get_unchecked(self.head) };
-            self.head += 1;
-            Some(el)
+            let el = Some(unsafe { self.vec.get_unchecked(self.forward_index) });
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.forward_index += 1;
+            }
+            el
         }
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.tail < self.head {
+        if self.finished {
             None
         } else {
-            let el = unsafe { self.vec.get_unchecked(self.tail) };
-            self.tail -= 1;
-            Some(el)
+            let el = Some(unsafe { self.vec.get_unchecked(self.back_index) });
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.back_index -= 1;
+            }
+            el
         }
     }
 }
@@ -786,6 +796,16 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_rev() {
+        let v = Vector::from_iter(1..=3);
+        let mut iter = v.iter().rev();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
     fn test_iter_mut() {
         let mut v = Vector::from_iter(1..=6);
         let mut iter = v.iter_mut();
@@ -811,6 +831,16 @@ mod tests {
         assert_eq!(iter.next(), Some(4));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn test_into_iter_rev() {
+        let v = Vector::from_iter(1..=3);
+        let mut iter = v.into_iter().rev();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
