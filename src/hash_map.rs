@@ -2,6 +2,7 @@ use crate::{linked_list::LinkedList, vector::Vector};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
+    ops::Index,
 };
 
 const DEFAULT_CAPACITY: usize = 4;
@@ -194,6 +195,17 @@ where
             buckets: self.buckets.iter().cloned().collect(),
             len: self.len,
         }
+    }
+}
+
+impl<K, V> Index<K> for HashMap<K, V>
+where
+    K: Hash + PartialEq,
+{
+    type Output = V;
+
+    fn index(&self, key: K) -> &Self::Output {
+        self.get(&key).expect("index out of range")
     }
 }
 
@@ -764,5 +776,23 @@ mod tests {
         }
         let cloned = hm.clone();
         assert_eq!(hm, cloned);
+    }
+
+    #[test]
+    fn test_index() {
+        let mut hm = HashMap::new();
+        hm.insert(0, 0);
+        hm.insert(2, 2);
+        assert_eq!(hm[0], 0);
+        assert_eq!(hm[2], 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_key_does_not_exist() {
+        let mut hm = HashMap::new();
+        hm.insert(0, 0);
+        hm.insert(2, 2);
+        hm[1];
     }
 }
