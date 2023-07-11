@@ -67,13 +67,11 @@ where
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index >= self.len {
             None
+        } else if self.data.get(&index).is_some() {
+            self.data.get_mut(&index)
         } else {
-            if self.data.get(&index).is_some() {
-                self.data.get_mut(&index)
-            } else {
-                self.data.insert(index, self.default.clone());
-                self.get_mut(index)
-            }
+            self.data.insert(index, self.default.clone());
+            self.get_mut(index)
         }
     }
 }
