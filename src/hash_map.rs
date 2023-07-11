@@ -25,12 +25,6 @@ struct Node<K, V> {
     value: V,
 }
 
-impl<K, V> Node<K, V> {
-    unsafe fn value_as_mut_ptr(&mut self) -> *mut V {
-        &mut self.value as *mut V
-    }
-}
-
 impl<K, V> HashMap<K, V>
 where
     K: PartialEq + Hash,
@@ -122,7 +116,7 @@ where
             Some(ll) => {
                 for node in ll {
                     if node.key == *key {
-                        return Some(node.value_as_mut_ptr());
+                        return Some(&mut node.value as *mut V);
                     }
                 }
                 None
