@@ -108,6 +108,22 @@ where
     }
 
     /// Time complexity: O(1)
+    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+        let bucket_index = self.bucket_index(key);
+        match &mut self.buckets[bucket_index] {
+            Some(ll) => {
+                for node in ll {
+                    if node.key == *key {
+                        return Some(&mut node.value);
+                    }
+                }
+                None
+            }
+            None => None,
+        }
+    }
+
+    /// Time complexity: O(1)
     pub fn remove(&mut self, key: &K) -> Option<V> {
         let bucket_index = self.bucket_index(key);
         match &mut self.buckets[bucket_index] {
@@ -393,6 +409,16 @@ mod tests {
         assert!(hm.get(&k).is_none());
         hm.insert(k, v);
         assert_eq!(hm.get(&k), Some(&v));
+    }
+
+    #[test]
+    fn test_get_mut() {
+        let mut hm = HashMap::new();
+        let k = 0;
+        let mut v = 1;
+        assert!(hm.get_mut(&k).is_none());
+        hm.insert(k, v);
+        assert_eq!(hm.get_mut(&k), Some(&mut v));
     }
 
     #[test]
