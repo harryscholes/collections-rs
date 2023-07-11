@@ -205,7 +205,7 @@ where
     type Output = V;
 
     fn index(&self, key: K) -> &Self::Output {
-        self.get(&key).expect("index out of range")
+        self.get(&key).expect("key does not exist")
     }
 }
 
