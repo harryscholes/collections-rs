@@ -1,5 +1,8 @@
 use crate::hash_map::HashMap;
-use std::{iter::FusedIterator, ops::Index};
+use std::{
+    iter::FusedIterator,
+    ops::{Index, IndexMut},
+};
 
 // Space complexity: O(d)
 #[derive(Debug)]
@@ -57,6 +60,20 @@ where
             self.data.remove(&self.len).or(Some(self.default.clone()))
         } else {
             None
+        }
+    }
+
+    // Time complexity: O(1)
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index >= self.len {
+            None
+        } else {
+            if self.data.get(&index).is_some() {
+                self.data.get_mut(&index)
+            } else {
+                self.data.insert(index, self.default.clone());
+                self.get_mut(index)
+            }
         }
     }
 }
@@ -139,6 +156,15 @@ impl<T> Index<usize> for SparseVector<T> {
 
     fn index(&self, index: usize) -> &Self::Output {
         self.get(index).expect("index out of range")
+    }
+}
+
+impl<T> IndexMut<usize> for SparseVector<T>
+where
+    T: Clone,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).expect("index out of range")
     }
 }
 
@@ -318,6 +344,20 @@ mod tests {
     }
 
     #[test]
+    fn test_get_mut() {
+        let mut sv = SparseVector::from([0, 2, 0]);
+        assert_eq!(sv.get_mut(0), Some(&mut 0));
+        assert_eq!(sv.get_mut(1), Some(&mut 2));
+        assert_eq!(sv.get_mut(2), Some(&mut 0));
+        assert_eq!(sv.get_mut(3), None);
+
+        if let Some(v) = sv.get_mut(0) {
+            *v = 1;
+        }
+        assert_eq!(sv.get(0), Some(&1));
+    }
+
+    #[test]
     fn test_pop_back() {
         let mut sv = SparseVector::from([1, 0, 2]);
         assert_eq!(sv.len(), 3);
@@ -455,5 +495,27 @@ mod tests {
         assert_eq!(sv[1], 1);
         assert_eq!(sv[2], 0);
         assert_eq!(sv[3], 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_out_of_bounds() {
+        let sv = SparseVector::from([0, 1, 0, 3]);
+        sv[4];
+    }
+
+    #[test]
+    fn test_index_mut() {
+        let mut sv = SparseVector::from([0, 1, 0, 3]);
+        assert_eq!(sv[0], 0);
+        sv[0] = 1;
+        assert_eq!(sv[0], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_index_out_of_bounds() {
+        let mut sv = SparseVector::from([0, 1, 0, 3]);
+        sv[4] = 0;
     }
 }
