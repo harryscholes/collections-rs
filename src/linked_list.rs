@@ -1,4 +1,8 @@
-use std::{marker::PhantomData, ops::Index, ptr::NonNull};
+use std::{
+    marker::PhantomData,
+    ops::{Index, IndexMut},
+    ptr::NonNull,
+};
 
 /// Space complexity: O(n)
 #[derive(Debug, Eq)]
@@ -207,7 +211,13 @@ impl<T> Index<usize> for LinkedList<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        self.iter().nth(index).expect("index out of bounds")
+        self.into_iter().nth(index).expect("index out of bounds")
+    }
+}
+
+impl<T> IndexMut<usize> for LinkedList<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.into_iter().nth(index).expect("index out of bounds")
     }
 }
 
@@ -357,6 +367,15 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(|node| &mut node.element)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut LinkedList<T> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IterMut::new(self)
     }
 }
 
@@ -631,6 +650,16 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_mut_borrowed_into_iter() {
+        let mut l = LinkedList::from([1, 2, 3]);
+        let mut iter = (&mut l).into_iter();
+        assert_eq!(iter.next(), Some(&mut 1));
+        assert_eq!(iter.next(), Some(&mut 2));
+        assert_eq!(iter.next(), Some(&mut 3));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
     fn test_into_iter() {
         let l: LinkedList<usize> = LinkedList::new();
         let mut iter = l.into_iter();
@@ -793,5 +822,25 @@ mod tests {
         l.push_back(0);
         l.push_back(1);
         l[2];
+    }
+
+    #[test]
+
+    fn test_index_mut() {
+        let mut l = LinkedList::new();
+        l.push_back(0);
+        l.push_back(1);
+        assert_eq!(l.last(), Some(&1));
+        l[1] = 2;
+        assert_eq!(l.last(), Some(&2));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_out_of_bounds() {
+        let mut l = LinkedList::new();
+        l.push_back(0);
+        l.push_back(1);
+        l[2] = 2;
     }
 }
