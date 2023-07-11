@@ -1,3 +1,5 @@
+#![allow(clippy::missing_safety_doc)]
+
 use crate::hash_map::HashMap;
 use std::{
     iter::FusedIterator,
@@ -71,7 +73,19 @@ where
             self.data.get_mut(&index)
         } else {
             self.data.insert(index, self.default.clone());
-            self.get_mut(index)
+            self.data.get_mut(&index)
+        }
+    }
+
+    // Time complexity: O(1)
+    pub unsafe fn get_mut_ptr(&mut self, index: usize) -> Option<*mut T> {
+        if index >= self.len {
+            None
+        } else if self.data.get(&index).is_some() {
+            self.data.get_mut_ptr(&index)
+        } else {
+            self.data.insert(index, self.default.clone());
+            self.data.get_mut_ptr(&index)
         }
     }
 }
@@ -133,8 +147,13 @@ impl<T> SparseVector<T> {
     }
 
     // Time complexity: O(n)
-    pub fn iter(&self) -> Iter<'_, T> {
+    pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
+    }
+
+    // Time complexity: O(n)
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut::new(self)
     }
 }
 
@@ -225,6 +244,77 @@ impl<'a, T> IntoIterator for &'a SparseVector<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         Iter::new(self)
+    }
+}
+
+pub struct IterMut<'a, T> {
+    sv: &'a mut SparseVector<T>,
+    forward_index: usize,
+    back_index: usize,
+    finished: bool,
+}
+
+impl<'a, T> IterMut<'a, T> {
+    fn new(sv: &'a mut SparseVector<T>) -> Self {
+        Self {
+            forward_index: 0,
+            back_index: sv.len - 1,
+            sv,
+            finished: false,
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterMut<'a, T>
+where
+    T: Clone,
+{
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            None
+        } else {
+            let el = unsafe { self.sv.get_mut_ptr(self.forward_index).map(|el| &mut *el) };
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.forward_index += 1;
+            }
+            el
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T>
+where
+    T: Clone,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            None
+        } else {
+            let el = unsafe { self.sv.get_mut_ptr(self.back_index).map(|el| &mut *el) };
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.back_index -= 1;
+            }
+            el
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut SparseVector<T>
+where
+    T: Clone,
+{
+    type Item = &'a mut T;
+
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IterMut::new(self)
     }
 }
 
@@ -356,6 +446,20 @@ mod tests {
     }
 
     #[test]
+    fn test_get_mut_ptr() {
+        let mut sv = SparseVector::from([0, 2, 0]);
+        assert_eq!(unsafe { *sv.get_mut_ptr(0).unwrap() }, 0);
+        assert_eq!(unsafe { *sv.get_mut_ptr(1).unwrap() }, 2);
+        assert_eq!(unsafe { *sv.get_mut_ptr(2).unwrap() }, 0);
+        assert!(unsafe { sv.get_mut_ptr(3).is_none() });
+
+        if let Some(v) = sv.get_mut(0) {
+            *v = 1;
+        }
+        assert_eq!(sv.get(0), Some(&1));
+    }
+
+    #[test]
     fn test_pop_back() {
         let mut sv = SparseVector::from([1, 0, 2]);
         assert_eq!(sv.len(), 3);
@@ -454,6 +558,16 @@ mod tests {
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&0));
         assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_borrowed_into_iter_mut() {
+        let mut sv = SparseVector::from([0, 0, 2]);
+        let mut iter = (&mut sv).into_iter();
+        assert_eq!(iter.next(), Some(&mut 0));
+        assert_eq!(iter.next(), Some(&mut 0));
+        assert_eq!(iter.next(), Some(&mut 2));
         assert_eq!(iter.next(), None);
     }
 

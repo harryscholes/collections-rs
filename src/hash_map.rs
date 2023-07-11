@@ -1,3 +1,5 @@
+#![allow(clippy::missing_safety_doc)]
+
 use crate::{linked_list::LinkedList, vector::Vector};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -21,6 +23,12 @@ type Bucket<K, V> = LinkedList<Node<K, V>>;
 struct Node<K, V> {
     key: K,
     value: V,
+}
+
+impl<K, V> Node<K, V> {
+    unsafe fn value_as_mut_ptr(&mut self) -> *mut V {
+        &mut self.value as *mut V
+    }
 }
 
 impl<K, V> HashMap<K, V>
@@ -99,6 +107,22 @@ where
                 for node in ll {
                     if node.key == *key {
                         return Some(&node.value);
+                    }
+                }
+                None
+            }
+            None => None,
+        }
+    }
+
+    /// Time complexity: O(1)
+    pub unsafe fn get_mut_ptr(&mut self, key: &K) -> Option<*mut V> {
+        let bucket_index = self.bucket_index(key);
+        match &mut self.buckets[bucket_index] {
+            Some(ll) => {
+                for node in ll {
+                    if node.key == *key {
+                        return Some(node.value_as_mut_ptr());
                     }
                 }
                 None
@@ -419,6 +443,16 @@ mod tests {
         assert!(hm.get_mut(&k).is_none());
         hm.insert(k, v);
         assert_eq!(hm.get_mut(&k), Some(&mut v));
+    }
+
+    #[test]
+    fn test_get_mut_ptr() {
+        let mut hm = HashMap::new();
+        let k = 0;
+        let v = 1;
+        assert!(unsafe { hm.get_mut_ptr(&k).is_none() });
+        hm.insert(k, v);
+        assert_eq!(unsafe { *hm.get_mut_ptr(&k).unwrap() }, v);
     }
 
     #[test]
