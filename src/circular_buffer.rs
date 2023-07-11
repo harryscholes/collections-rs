@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 use crate::vector::Vector;
 
@@ -72,6 +72,16 @@ impl<T> CircularBuffer<T> {
         } else {
             let circular_index = add_mod(self.start, index, self.buf.len());
             self.buf[circular_index].as_ref()
+        }
+    }
+
+    /// Time complexity: O(1)
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index >= self.len() {
+            None
+        } else {
+            let circular_index = add_mod(self.start, index, self.buf.len());
+            self.buf[circular_index].as_mut()
         }
     }
 
@@ -216,6 +226,12 @@ impl<T> Index<usize> for CircularBuffer<T> {
 
     fn index(&self, index: usize) -> &Self::Output {
         self.get(index).expect("index out of range")
+    }
+}
+
+impl<T> IndexMut<usize> for CircularBuffer<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).expect("index out of range")
     }
 }
 
@@ -853,6 +869,20 @@ mod tests {
     }
 
     #[test]
+    fn test_get_mut() {
+        let mut cb = CircularBuffer::from_iter(0..=2);
+        assert_eq!(cb.get_mut(0), Some(&mut 0));
+        assert_eq!(cb.get_mut(1), Some(&mut 1));
+        assert_eq!(cb.get_mut(2), Some(&mut 2));
+        assert_eq!(cb.get_mut(3), None);
+
+        if let Some(v) = cb.get_mut(0) {
+            *v = 1;
+        }
+        assert_eq!(cb.get(0), Some(&1));
+    }
+
+    #[test]
     fn test_get_start_gt_end() {
         let cb = CircularBuffer {
             buf: Vector::from([Some(1), Some(2), Some(0)]),
@@ -917,5 +947,20 @@ mod tests {
         let mut cb = CircularBuffer::with_capacity(2);
         cb.push_back(0);
         assert_eq!(cb[1], 1);
+    }
+
+    #[test]
+    fn test_index_mut() {
+        let mut cb = CircularBuffer::from_iter(0..=2);
+        assert_eq!(cb[0], 0);
+        cb[0] = 1;
+        assert_eq!(cb[0], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_index_out_of_bounds() {
+        let mut cb = CircularBuffer::from_iter(0..=2);
+        cb[3] = 1;
     }
 }
