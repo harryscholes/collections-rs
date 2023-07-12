@@ -25,10 +25,7 @@ struct Node<K, V> {
     value: V,
 }
 
-impl<K, V> HashMap<K, V>
-where
-    K: PartialEq + Hash,
-{
+impl<K, V> HashMap<K, V> {
     /// Time complexity: O(1)
     pub fn new() -> Self {
         Self::with_capacity(DEFAULT_CAPACITY)
@@ -36,61 +33,86 @@ where
 
     /// Time complexity: O(1)
     pub fn with_capacity(capacity: usize) -> Self {
+        assert!(capacity > 0);
         Self {
-            buckets: (0..capacity.max(1)).map(|_| None).collect(),
+            buckets: (0..capacity).map(|_| None).collect(),
             len: 0,
         }
     }
 
-    /// Time complexity: O(1) amortised, O(n) worst case
-    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        let (ret, resize) = self.insert_without_resizing(key, value);
-        if resize {
-            self.resize()
-        }
-        ret
+    /// Time complexity: O(1)
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     /// Time complexity: O(1)
-    fn insert_without_resizing(&mut self, key: K, value: V) -> (Option<V>, bool) {
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Time complexity: O(n)
+    pub fn iter(&self) -> Iter<'_, K, V> {
+        Iter::new(self)
+    }
+}
+
+impl<K, V> HashMap<K, V>
+where
+    K: PartialEq + Hash,
+{
+    /// Time complexity: O(1) amortised, O(n) worst case
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+        let (old_value, rehash) = self.insert_impl(key, value);
+        if rehash {
+            self.rehash()
+        }
+        old_value
+    }
+
+    /// Time complexity: O(1)
+    fn insert_impl(&mut self, key: K, value: V) -> (Option<V>, bool) {
         let bucket_index = self.bucket_index(&key);
-        let mut resize = false;
         match self.buckets[bucket_index] {
             Some(ref mut ll) => {
+                // Check if key exists
                 for node in ll.iter_mut() {
                     if node.key == key {
+                        // Update value
                         let old_value = std::mem::replace(&mut node.value, value);
-                        return (Some(old_value), resize);
+                        return (Some(old_value), false);
                     }
                 }
-
+                // Otherwise add the key/value pair
                 ll.push_back(Node { key, value });
                 self.len += 1;
-
                 if ll.len() >= BUCKET_CAPACITY {
-                    resize = true;
+                    // Map needs to be rehashed
+                    (None, true)
+                } else {
+                    (None, false)
                 }
-
-                (None, resize)
             }
             None => {
                 let mut ll = LinkedList::new();
                 ll.push_back(Node { key, value });
                 self.buckets[bucket_index] = Some(ll);
                 self.len += 1;
-
-                (None, resize)
+                (None, false)
             }
         }
     }
 
     /// Time complexity: O(n)
-    fn resize(&mut self) {
-        let mut old_map = HashMap::with_capacity(self.len());
-        std::mem::swap(&mut old_map.buckets, &mut self.buckets);
+    fn rehash(&mut self) {
+        // Create a new `HashMap` with `capacity` equal to the length of `self`
+        let mut tmp = HashMap::with_capacity(self.len());
+        // Swap the `buckets` between `tmp` and `self`
+        std::mem::swap(&mut tmp.buckets, &mut self.buckets);
+        // Reset `len`
         self.len = 0;
-        for (key, value) in old_map {
-            self.insert_without_resizing(key, value);
+        // Insert the key/value pairs into the new buckets
+        for (key, value) in tmp {
+            self.insert_impl(key, value);
         }
     }
 
@@ -161,10 +183,10 @@ where
     where
         F: FnMut(&K, &mut V) -> bool,
     {
-        let mut old_map = HashMap::new();
-        std::mem::swap(&mut old_map.buckets, &mut self.buckets);
+        let mut tmp = HashMap::new();
+        std::mem::swap(&mut tmp.buckets, &mut self.buckets);
         self.len = 0;
-        for (key, mut value) in old_map {
+        for (key, mut value) in tmp {
             if f(&key, &mut value) {
                 self.insert(key, value);
             }
@@ -182,25 +204,8 @@ where
     }
 
     /// Time complexity: O(1)
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Time complexity: O(1)
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    /// Time complexity: O(1)
     pub fn contains_key(&self, key: &K) -> bool {
         self.get(key).is_some()
-    }
-}
-
-impl<K, V> HashMap<K, V> {
-    /// Time complexity: O(n)
-    pub fn iter(&self) -> Iter<'_, K, V> {
-        Iter::new(self)
     }
 }
 
@@ -396,6 +401,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_with_capacity_0() {
+        HashMap::<usize, usize>::with_capacity(0);
+    }
 
     #[test]
     fn test_insert() {
@@ -634,7 +645,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resize() {
+    fn test_rehash() {
         let mut hm = HashMap::new();
         let target_bucket = 0;
         let mut i = 0;
