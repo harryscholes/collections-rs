@@ -110,7 +110,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub unsafe fn get_ptr(&self, key: &K) -> Option<*const V> {
+    pub fn get_ptr(&self, key: &K) -> Option<*const V> {
         self.get(key).map(|value| value as *const V)
     }
 
@@ -131,7 +131,7 @@ where
     }
 
     /// Time complexity: O(1)
-    pub unsafe fn get_mut_ptr(&mut self, key: &K) -> Option<*mut V> {
+    pub fn get_mut_ptr(&mut self, key: &K) -> Option<*mut V> {
         self.get_mut(key).map(|value| value as *mut V)
     }
 
@@ -438,7 +438,7 @@ mod tests {
         let mut hm = HashMap::new();
         let k = 0;
         let v = 1;
-        assert!(unsafe { hm.get_mut_ptr(&k).is_none() });
+        assert!(hm.get_mut_ptr(&k).is_none());
         hm.insert(k, v);
         assert_eq!(unsafe { *hm.get_mut_ptr(&k).unwrap() }, v);
     }

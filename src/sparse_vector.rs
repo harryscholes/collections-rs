@@ -68,25 +68,23 @@ where
     // Time complexity: O(1)
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index >= self.len {
-            None
-        } else if self.data.get(&index).is_some() {
-            self.data.get_mut(&index)
-        } else {
-            self.data.insert(index, self.default.clone());
-            self.data.get_mut(&index)
+            return None;
         }
+        if !self.data.contains_key(&index) {
+            self.data.insert(index, self.default.clone());
+        }
+        self.data.get_mut(&index)
     }
 
     // Time complexity: O(1)
-    pub unsafe fn get_mut_ptr(&mut self, index: usize) -> Option<*mut T> {
+    pub fn get_mut_ptr(&mut self, index: usize) -> Option<*mut T> {
         if index >= self.len {
-            None
-        } else if self.data.get(&index).is_some() {
-            self.data.get_mut_ptr(&index)
-        } else {
-            self.data.insert(index, self.default.clone());
-            self.data.get_mut_ptr(&index)
+            return None;
         }
+        if !self.data.contains_key(&index) {
+            self.data.insert(index, self.default.clone());
+        }
+        self.data.get_mut_ptr(&index)
     }
 }
 
@@ -451,7 +449,7 @@ mod tests {
         assert_eq!(unsafe { *sv.get_mut_ptr(0).unwrap() }, 0);
         assert_eq!(unsafe { *sv.get_mut_ptr(1).unwrap() }, 2);
         assert_eq!(unsafe { *sv.get_mut_ptr(2).unwrap() }, 0);
-        assert!(unsafe { sv.get_mut_ptr(3).is_none() });
+        assert!(sv.get_mut_ptr(3).is_none());
 
         if let Some(v) = sv.get_mut(0) {
             *v = 1;
