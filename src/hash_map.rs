@@ -110,19 +110,8 @@ where
     }
 
     /// Time complexity: O(1)
-    pub unsafe fn get_mut_ptr(&mut self, key: &K) -> Option<*mut V> {
-        let bucket_index = self.bucket_index(key);
-        match &mut self.buckets[bucket_index] {
-            Some(ll) => {
-                for node in ll {
-                    if node.key == *key {
-                        return Some(&mut node.value as *mut V);
-                    }
-                }
-                None
-            }
-            None => None,
-        }
+    pub unsafe fn get_ptr(&self, key: &K) -> Option<*const V> {
+        self.get(key).map(|value| value as *const V)
     }
 
     /// Time complexity: O(1)
@@ -139,6 +128,11 @@ where
             }
             None => None,
         }
+    }
+
+    /// Time complexity: O(1)
+    pub unsafe fn get_mut_ptr(&mut self, key: &K) -> Option<*mut V> {
+        self.get_mut(key).map(|value| value as *mut V)
     }
 
     /// Time complexity: O(1)
