@@ -76,6 +76,11 @@ impl<T> CircularBuffer<T> {
     }
 
     /// Time complexity: O(1)
+    pub fn get_ptr(&self, index: usize) -> Option<*const T> {
+        self.get(index).map(|el| el as *const T)
+    }
+
+    /// Time complexity: O(1)
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index >= self.len() {
             None
@@ -83,6 +88,11 @@ impl<T> CircularBuffer<T> {
             let circular_index = add_mod(self.start, index, self.buf.len());
             self.buf[circular_index].as_mut()
         }
+    }
+
+    /// Time complexity: O(1)
+    pub fn get_mut_ptr(&mut self, index: usize) -> Option<*mut T> {
+        self.get_mut(index).map(|el| el as *mut T)
     }
 
     /// Time complexity: O(1)
@@ -149,6 +159,11 @@ impl<T> CircularBuffer<T> {
     /// Time complexity: O(n)
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
+    }
+
+    /// Time complexity: O(n)
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut::new(self)
     }
 
     /// Time complexity: O(1)
@@ -294,6 +309,68 @@ impl<'a, T> IntoIterator for &'a CircularBuffer<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         Iter::new(self)
+    }
+}
+
+pub struct IterMut<'a, T> {
+    cb: &'a mut CircularBuffer<T>,
+    forward_index: usize,
+    back_index: usize,
+    finished: bool,
+}
+
+impl<'a, T> IterMut<'a, T> {
+    fn new(cb: &'a mut CircularBuffer<T>) -> Self {
+        Self {
+            forward_index: 0,
+            back_index: cb.len() - 1,
+            cb,
+            finished: false,
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            None
+        } else {
+            let el = unsafe { self.cb.get_mut_ptr(self.forward_index).map(|ptr| &mut *ptr) };
+            if self.forward_index == self.back_index {
+                self.finished = true;
+            } else {
+                self.forward_index += 1;
+            }
+            el
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            None
+        } else {
+            let el = unsafe { self.cb.get_mut_ptr(self.back_index).map(|ptr| &mut *ptr) };
+            if self.back_index == self.forward_index {
+                self.finished = true;
+            } else {
+                self.back_index -= 1;
+            }
+            el
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut CircularBuffer<T> {
+    type Item = &'a mut T;
+
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IterMut::new(self)
     }
 }
 
@@ -688,6 +765,16 @@ mod tests {
         assert_eq!(iter.next(), Some(4));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn test_iter_mut() {
+        let mut cb = CircularBuffer::from_iter(0..=2);
+        let mut iter = cb.iter_mut();
+        assert_eq!(iter.next(), Some(&mut 0));
+        assert_eq!(iter.next(), Some(&mut 1));
+        assert_eq!(iter.next(), Some(&mut 2));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
