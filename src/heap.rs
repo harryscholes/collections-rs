@@ -6,7 +6,6 @@ pub trait Heap<T> {
 
     fn pop(&mut self) -> Option<T>;
 
-    // fn delete<P: FnMut(&T) -> bool>(&mut self, predicate: P) -> Option<T>;
     fn delete(&mut self, el: &T) -> Option<T>;
 
     fn peek(&self) -> Option<&T>;
@@ -20,10 +19,50 @@ pub trait Heap<T> {
 
 pub struct MaxHeap<T>(Vector<T>);
 
-impl<T> MaxHeap<T>
+impl<T> Heap<T> for MaxHeap<T>
 where
     T: Ord,
 {
+    /// Time complexity: O(log(n))
+    fn push(&mut self, el: T) {
+        self.0.push_back(el);
+        self.sift_up(self.len() - 1);
+        debug_assert!(is_heap(&self.0));
+    }
+
+    /// Time complexity: O(log(n))
+    fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            let last_index = self.len() - 1;
+            self.0.swap(0, last_index);
+            let root = self.0.pop_back();
+            self.sift_down(0);
+            debug_assert!(is_heap(&self.0));
+            root
+        }
+    }
+
+    /// If `el` occurs multiple times, the one nearest to the root of the tree will be deleted.
+    ///
+    /// Time complexity: O(n)
+    fn delete(&mut self, el: &T) -> Option<T> {
+        self.delete_match(|x| x == el)
+    }
+
+    /// Time complexity: O(1)
+    fn peek(&self) -> Option<&T> {
+        self.0.first()
+    }
+
+    /// Time complexity: O(1)
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<T> MaxHeap<T> {
     pub fn new() -> Self {
         Self::with_capacity(0)
     }
@@ -31,7 +70,12 @@ where
     pub fn with_capacity(capacity: usize) -> Self {
         Self(Vector::with_capacity(capacity))
     }
+}
 
+impl<T> MaxHeap<T>
+where
+    T: Ord,
+{
     /// Time complexity: O(log(n))
     fn sift_down(&mut self, index: usize) {
         let mut parent_index = index;
@@ -97,7 +141,10 @@ where
     /// Delete the largest item in the heap that matches `predicate`.
     ///
     /// Time complexity: O(n)
-    pub(crate) fn delete_match<F: FnMut(&T) -> bool>(&mut self, predicate: F) -> Option<T> {
+    pub(crate) fn delete_match<F>(&mut self, predicate: F) -> Option<T>
+    where
+        F: FnMut(&T) -> bool,
+    {
         match self.0.iter().position(predicate) {
             Some(index) => self.delete_index(index),
             None => None,
@@ -110,63 +157,15 @@ where
         self.0.swap(index, last_index);
         let el = self.0.pop_back();
         // Heapify
-        if let Some(x) = self.0.get(index) {
-            if let Some(parent) = self.0.get(parent_index(index)) {
-                if x > parent {
-                    self.sift_up(index);
-                } else {
-                    self.sift_down(index);
-                }
-            }
+        let x = self.0.get(index);
+        let parent = self.0.get(parent_index(index));
+        if x > parent {
+            self.sift_up(index);
+        } else {
+            self.sift_down(index);
         }
         debug_assert!(is_heap(&self.0));
         el
-    }
-}
-
-impl<T> Heap<T> for MaxHeap<T>
-where
-    T: Ord,
-{
-    /// Time complexity: O(log(n))
-    fn push(&mut self, el: T) {
-        self.0.push_back(el);
-        self.sift_up(self.len() - 1);
-        debug_assert!(is_heap(&self.0));
-    }
-
-    /// Time complexity: O(log(n))
-    fn pop(&mut self) -> Option<T> {
-        match self.peek() {
-            Some(_root) => {
-                let len = self.len();
-                self.0.swap(0, len - 1);
-                let root = self.0.pop_back();
-                self.sift_down(0);
-                debug_assert!(is_heap(&self.0));
-                root
-            }
-            None => None,
-        }
-    }
-
-    /// Delete `el` from the heap.
-    ///
-    /// If `el` occurs multiple times, the one nearest to the root of the tree will be deleted.
-    ///
-    /// Time complexity: O(n)
-    fn delete(&mut self, el: &T) -> Option<T> {
-        self.delete_match(|x| x == el)
-    }
-
-    /// Time complexity: O(1)
-    fn peek(&self) -> Option<&T> {
-        self.0.first()
-    }
-
-    /// Time complexity: O(1)
-    fn len(&self) -> usize {
-        self.0.len()
     }
 }
 
@@ -180,19 +179,6 @@ where
 }
 
 pub struct MinHeap<T>(MaxHeap<Reverse<T>>);
-
-impl<T> MinHeap<T>
-where
-    T: Ord,
-{
-    pub fn new() -> Self {
-        Self::with_capacity(0)
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(MaxHeap::with_capacity(capacity))
-    }
-}
 
 impl<T> Heap<T> for MinHeap<T>
 where
@@ -214,10 +200,11 @@ where
     ///
     /// Time complexity: O(n)
     fn delete(&mut self, el: &T) -> Option<T> {
-        match self.0 .0.iter().map(|x| &x.0).position(|x| x == el) {
-            Some(index) => self.0.delete_index(index).map(|rev| rev.0),
-            None => None,
-        }
+        self.0
+             .0
+            .iter()
+            .position(|x| el == &x.0)
+            .and_then(|index| self.0.delete_index(index).map(|rev| rev.0))
     }
 
     /// Time complexity: O(1)
@@ -228,6 +215,16 @@ where
     /// Time complexity: O(1)
     fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl<T> MinHeap<T> {
+    fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self(MaxHeap::with_capacity(capacity))
     }
 }
 
@@ -281,13 +278,13 @@ pub fn heapify<T: Ord>(arr: &mut [T]) {
     fn _heapify<T: Ord>(arr: &mut [T], index: usize) {
         let n = arr.len();
         let mut largest = index;
-        let (l, r) = sibling_indices(index);
+        let (left_sibling_index, right_sibling_index) = sibling_indices(index);
 
-        if l < n && arr[l] > arr[largest] {
-            largest = l;
+        if left_sibling_index < n && arr[left_sibling_index] > arr[largest] {
+            largest = left_sibling_index;
         }
-        if r < n && arr[r] > arr[largest] {
-            largest = r;
+        if right_sibling_index < n && arr[right_sibling_index] > arr[largest] {
+            largest = right_sibling_index;
         }
 
         if largest != index {
