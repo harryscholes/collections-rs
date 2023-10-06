@@ -387,7 +387,7 @@ where
     K: PartialEq + Hash,
 {
     fn from(arr: [(K, V); N]) -> Self {
-        Self::from_iter(arr.into_iter())
+        Self::from_iter(arr)
     }
 }
 

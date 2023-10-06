@@ -134,7 +134,7 @@ impl<T> FromIterator<T> for Dequeue<T> {
 
 impl<T, const N: usize> From<[T; N]> for Dequeue<T> {
     fn from(arr: [T; N]) -> Self {
-        Self::from_iter(arr.into_iter())
+        Self::from_iter(arr)
     }
 }
 

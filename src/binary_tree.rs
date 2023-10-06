@@ -32,11 +32,20 @@ impl<T> BinaryTree<T> {
         2usize.pow(self.height as u32) - 1
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn height(&self) -> usize {
-        if self.len() == 0 {
-            0
-        } else {
-            self.len().ilog2() as usize + 1
+        self.height
+    }
+
+    pub fn new_height(&mut self, new_height: usize) {
+        let old_height = self.height;
+        self.height = new_height;
+        if self.height < old_height {
+            let new_len = self.len();
+            self.values.retain(|&index, _| index < new_len);
         }
     }
 
@@ -75,7 +84,7 @@ impl<'a, T> Iterator for BinaryTreeIterator<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.bt.len() {
-            return None;
+            None
         } else {
             let item = self.bt.get(self.index);
             self.index += 1;
@@ -268,5 +277,21 @@ mod tests {
 
         let bt = BinaryTree::from_iter(0..=6);
         assert_eq!(bt.height, 3);
+    }
+
+    #[test]
+    fn test_new_height() {
+        let mut bt = BinaryTree::with_height(1);
+        bt.insert(0, 0);
+
+        bt.new_height(2);
+        bt.insert(1, 1);
+        bt.insert(2, 2);
+        assert_eq!(bt.get(1), Some(&1));
+        assert_eq!(bt.get(2), Some(&2));
+
+        bt.new_height(1);
+        assert_eq!(bt.get(1), None);
+        assert_eq!(bt.get(2), None);
     }
 }

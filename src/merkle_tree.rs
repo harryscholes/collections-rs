@@ -191,10 +191,10 @@ impl MerkleTree {
 
         let expected_len = self.tree.height() - 1;
         if proof_len != expected_len {
-            return Err(Error::IncorrectProofLength {
+            Err(Error::IncorrectProofLength {
                 proof_len,
                 expected_len,
-            });
+            })
         } else {
             Ok(())
         }

@@ -416,7 +416,7 @@ impl<T> FromIterator<T> for LinkedList<T> {
 
 impl<T, const N: usize> From<[T; N]> for LinkedList<T> {
     fn from(arr: [T; N]) -> Self {
-        Self::from_iter(arr.into_iter())
+        Self::from_iter(arr)
     }
 }
 
