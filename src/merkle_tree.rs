@@ -36,8 +36,8 @@ impl MerkleTree {
     }
 
     /// Time complexity: O(log n)
-    pub fn insert(&mut self, index: usize, value: impl AsRef<[u8]>) -> Result<Digest, Error> {
-        self.bounds_check(index)?;
+    pub fn insert(&mut self, index: usize, value: impl AsRef<[u8]>) -> Digest {
+        self.bounds_check(index).unwrap();
 
         let tree_index = self.tree_index(index);
         let leaf_node = hash(value);
@@ -63,15 +63,15 @@ impl MerkleTree {
             internal_height -= 1;
         }
 
-        Ok(self.root())
+        self.root()
     }
 
     /// Merkle path from leaf to root.
     ///
     /// Time complexity: O(log n)
     /// Space complexity: O(log n)
-    pub fn path(&self, index: usize) -> Result<Vector<usize>, Error> {
-        self.bounds_check(index)?;
+    pub fn path(&self, index: usize) -> Vector<usize> {
+        self.bounds_check(index).unwrap();
 
         let tree_index = self.tree_index(index);
         let mut path = Vector::with_capacity(self.tree.height() - 1);
@@ -87,13 +87,15 @@ impl MerkleTree {
             internal_height -= 1;
         }
 
-        Ok(path)
+        path
     }
 
     /// Time complexity: O(log n)
     /// Space complexity: O(log n)
-    pub fn prove(&self, index: usize) -> Result<Vector<Digest>, Error> {
-        let path = self.path(index)?;
+    pub fn prove(&self, index: usize) -> Vector<Digest> {
+        assert!(self.tree.height() > 1);
+
+        let path = self.path(index);
 
         let mut proof = Vector::with_capacity(path.len());
 
@@ -108,16 +110,12 @@ impl MerkleTree {
             internal_height -= 1;
         }
 
-        Ok(proof)
+        proof
     }
 
     /// Time complexity: O(log n)
-    pub fn validate(&self, value: impl AsRef<[u8]>, proof: Vector<Digest>) -> Result<bool, Error> {
-        let len = proof.len();
-        let expected_len = self.tree.height() - 1;
-        if len != expected_len {
-            return Err(Error::IncorrectProofLength { len, expected_len });
-        }
+    pub fn validate(&self, value: impl AsRef<[u8]>, proof: Vector<Digest>) -> bool {
+        self.proof_check(proof.len()).unwrap();
 
         let mut internal_node = hash(value);
         for sibling_node in proof {
@@ -126,7 +124,7 @@ impl MerkleTree {
 
         let proof_root = internal_node;
 
-        Ok(proof_root == self.root())
+        proof_root == self.root()
     }
 
     /// Returns the indicies whose value is `value`.
@@ -183,6 +181,24 @@ impl MerkleTree {
             Ok(())
         }
     }
+
+    fn proof_check(&self, proof_len: usize) -> Result<(), Error> {
+        if self.tree.height() <= 1 {
+            return Err(Error::InvalidTreeHeight {
+                height: self.tree.height(),
+            });
+        }
+
+        let expected_len = self.tree.height() - 1;
+        if proof_len != expected_len {
+            return Err(Error::IncorrectProofLength {
+                proof_len,
+                expected_len,
+            });
+        } else {
+            Ok(())
+        }
+    }
 }
 
 fn hash(x: impl AsRef<[u8]>) -> Digest {
@@ -229,8 +245,17 @@ fn sibling_index(index: usize) -> usize {
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    IndexOutOfBounds { len: usize, index: usize },
-    IncorrectProofLength { len: usize, expected_len: usize },
+    IndexOutOfBounds {
+        len: usize,
+        index: usize,
+    },
+    IncorrectProofLength {
+        proof_len: usize,
+        expected_len: usize,
+    },
+    InvalidTreeHeight {
+        height: usize,
+    },
 }
 
 #[cfg(test)]
@@ -301,7 +326,7 @@ mod tests {
     #[test]
     fn root_height_1() {
         let mut tree = MerkleTree::with_height(1);
-        let root = tree.insert(0, "a").unwrap();
+        let root = tree.insert(0, "a");
         let expected_root = hash("a");
         assert_eq!(root, expected_root);
     }
@@ -310,11 +335,11 @@ mod tests {
     fn root_height_2() {
         let mut tree = MerkleTree::with_height(2);
 
-        let root = tree.insert(0, "a").unwrap();
+        let root = tree.insert(0, "a");
         let expected_root = hash_pair(hash("a"), DEFAULT_LEAF);
         assert_eq!(root, expected_root);
 
-        let root = tree.insert(1, "b").unwrap();
+        let root = tree.insert(1, "b");
         let expected_root = hash_pair(hash("a"), hash("b"));
         assert_eq!(root, expected_root);
     }
@@ -323,7 +348,7 @@ mod tests {
     fn root_height_3() {
         let mut tree = MerkleTree::with_height(3);
 
-        let root = tree.insert(0, "a").unwrap();
+        let root = tree.insert(0, "a");
         assert_eq!(
             *tree.tree.get(1).unwrap(),
             hash_pair(hash("a"), DEFAULT_LEAF)
@@ -337,7 +362,7 @@ mod tests {
             )
         );
 
-        let root = tree.insert(1, "b").unwrap();
+        let root = tree.insert(1, "b");
         assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
         assert!(tree.tree.get(2).is_none());
         assert_eq!(
@@ -348,7 +373,7 @@ mod tests {
             )
         );
 
-        let root = tree.insert(2, "c").unwrap();
+        let root = tree.insert(2, "c");
         assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
         assert_eq!(
             *tree.tree.get(2).unwrap(),
@@ -362,7 +387,7 @@ mod tests {
             )
         );
 
-        let root = tree.insert(3, "d").unwrap();
+        let root = tree.insert(3, "d");
         assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
         assert_eq!(*tree.tree.get(2).unwrap(), hash_pair(hash("c"), hash("d")));
         assert_eq!(
@@ -378,46 +403,46 @@ mod tests {
     fn proof_height_2() {
         let mut tree = MerkleTree::with_height(2);
 
-        tree.insert(0, "a").unwrap();
-        let proof = tree.prove(0).unwrap();
+        tree.insert(0, "a");
+        let proof = tree.prove(0);
         let expected_proof = vec![DEFAULT_LEAF];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("a", proof).unwrap());
+        assert!(tree.validate("a", proof));
 
-        tree.insert(1, "b").unwrap();
-        let proof = tree.prove(1).unwrap();
+        tree.insert(1, "b");
+        let proof = tree.prove(1);
         let expected_proof = vec![hash("a")];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("b", proof).unwrap());
+        assert!(tree.validate("b", proof));
     }
 
     #[test]
     fn proof_height_3() {
         let mut tree = MerkleTree::with_height(3);
 
-        tree.insert(3, "d").unwrap();
-        let proof = tree.prove(3).unwrap();
+        tree.insert(3, "d");
+        let proof = tree.prove(3);
         let expected_proof = vec![DEFAULT_LEAF, hash_pair(DEFAULT_LEAF, DEFAULT_LEAF)];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("d", proof).unwrap());
+        assert!(tree.validate("d", proof));
 
-        tree.insert(1, "b").unwrap();
-        let proof = tree.prove(1).unwrap();
+        tree.insert(1, "b");
+        let proof = tree.prove(1);
         let expected_proof = vec![DEFAULT_LEAF, hash_pair(DEFAULT_LEAF, hash("d"))];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("b", proof).unwrap());
+        assert!(tree.validate("b", proof));
 
-        tree.insert(2, "c").unwrap();
-        let proof = tree.prove(2).unwrap();
+        tree.insert(2, "c");
+        let proof = tree.prove(2);
         let expected_proof = vec![hash("d"), hash_pair(DEFAULT_LEAF, hash("b"))];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("c", proof).unwrap());
+        assert!(tree.validate("c", proof));
 
-        tree.insert(0, "a").unwrap();
-        let proof = tree.prove(0).unwrap();
+        tree.insert(0, "a");
+        let proof = tree.prove(0);
         let expected_proof = vec![hash("b"), hash_pair(hash("c"), hash("d"))];
         assert_eq!(proof, expected_proof.into());
-        assert!(tree.validate("a", proof).unwrap());
+        assert!(tree.validate("a", proof));
     }
 
     #[test]
@@ -428,16 +453,16 @@ mod tests {
         // 3 4 5 6
         let tree = MerkleTree::with_height(3);
 
-        let proof = tree.path(0).unwrap();
+        let proof = tree.path(0);
         assert_eq!(proof, [4, 2].into());
 
-        let proof = tree.path(1).unwrap();
+        let proof = tree.path(1);
         assert_eq!(proof, [3, 2].into());
 
-        let proof = tree.path(2).unwrap();
+        let proof = tree.path(2);
         assert_eq!(proof, [6, 1].into());
 
-        let proof = tree.path(3).unwrap();
+        let proof = tree.path(3);
         assert_eq!(proof, [5, 1].into());
     }
 
@@ -450,11 +475,48 @@ mod tests {
         // 7 8..13 14
         let tree = MerkleTree::with_height(4);
 
-        let proof = tree.path(0).unwrap();
+        let proof = tree.path(0);
         assert_eq!(proof, [8, 4, 2].into());
 
-        let proof = tree.path(7).unwrap();
+        let proof = tree.path(7);
         assert_eq!(proof, [13, 5, 1].into());
+    }
+
+    #[test]
+    fn indicies_of() {
+        let mut tree = MerkleTree::with_height(3);
+
+        tree.insert(0, "a");
+        assert_eq!(tree.indicies_of("a"), Some(vec![0].into()));
+
+        tree.insert(3, "a");
+        let indexes = tree.indicies_of("a").unwrap();
+        let expected_indexes = vec![0, 3];
+        assert_eq!(indexes, expected_indexes.into());
+
+        assert!(tree.indicies_of("b").is_none());
+    }
+
+    #[test]
+    fn contains() {
+        let mut tree = MerkleTree::with_height(3);
+
+        assert!(!tree.contains("a"));
+
+        tree.insert(3, "a");
+        assert!(tree.contains("a"));
+
+        tree.insert(0, "a");
+        assert!(tree.contains("a"));
+    }
+
+    #[test]
+    fn len() {
+        assert_eq!(MerkleTree::with_height(0).len(), 0);
+        assert_eq!(MerkleTree::with_height(1).len(), 1);
+        assert_eq!(MerkleTree::with_height(2).len(), 2);
+        assert_eq!(MerkleTree::with_height(3).len(), 4);
+        assert_eq!(MerkleTree::with_height(4).len(), 8);
     }
 
     #[test]
@@ -476,38 +538,31 @@ mod tests {
     }
 
     #[test]
-    fn indicies_of() {
-        let mut tree = MerkleTree::with_height(3);
+    fn proof_check() {
+        assert_eq!(
+            MerkleTree::with_height(0).proof_check(0).unwrap_err(),
+            Error::InvalidTreeHeight { height: 0 }
+        );
 
-        tree.insert(0, "a").unwrap();
-        assert_eq!(tree.indicies_of("a"), Some(vec![0].into()));
+        assert_eq!(
+            MerkleTree::with_height(1).proof_check(0).unwrap_err(),
+            Error::InvalidTreeHeight { height: 1 }
+        );
 
-        tree.insert(3, "a").unwrap();
-        let indexes = tree.indicies_of("a").unwrap();
-        let expected_indexes = vec![0, 3];
-        assert_eq!(indexes, expected_indexes.into());
+        assert_eq!(
+            MerkleTree::with_height(2).proof_check(2).unwrap_err(),
+            Error::IncorrectProofLength {
+                proof_len: 2,
+                expected_len: 1
+            }
+        );
 
-        assert!(tree.indicies_of("b").is_none());
-    }
-
-    #[test]
-    fn contains() {
-        let mut tree = MerkleTree::with_height(3);
-
-        assert!(!tree.contains("a"));
-
-        tree.insert(3, "a").unwrap();
-        assert!(tree.contains("a"));
-
-        tree.insert(0, "a").unwrap();
-        assert!(tree.contains("a"));
-    }
-
-    #[test]
-    fn len() {
-        assert_eq!(MerkleTree::with_height(0).len(), 0);
-        assert_eq!(MerkleTree::with_height(1).len(), 1);
-        assert_eq!(MerkleTree::with_height(2).len(), 2);
-        assert_eq!(MerkleTree::with_height(3).len(), 4);
+        assert_eq!(
+            MerkleTree::with_height(3).proof_check(3).unwrap_err(),
+            Error::IncorrectProofLength {
+                proof_len: 3,
+                expected_len: 2
+            }
+        );
     }
 }
