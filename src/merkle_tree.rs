@@ -290,14 +290,13 @@ mod tests {
         assert_eq!(root, expected_root);
     }
 
-    // #[test]
-    // fn empty_tree_height_32() {
-    //     let tree = MerkleTree::new(32);
-    //     dbg!("built tree");
-    //     let root = tree.root();
-    //     let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_front().unwrap();
-    //     assert_eq!(root, expected_root);
-    // }
+    #[test]
+    fn empty_tree_height_32() {
+        let tree = MerkleTree::new(32);
+        let root = tree.root();
+        let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_front().unwrap();
+        assert_eq!(root, expected_root);
+    }
 
     #[test]
     fn root_height_1() {

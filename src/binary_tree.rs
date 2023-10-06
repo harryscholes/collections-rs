@@ -1,50 +1,35 @@
+use crate::hash_map::HashMap;
+use std::iter::FromIterator;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BinaryTree<T> {
-    values: Vec<Option<T>>,
+    values: HashMap<usize, T>,
+    height: usize,
 }
 
 impl<T> BinaryTree<T> {
     pub fn new() -> Self {
-        Self { values: Vec::new() }
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            values: Vec::with_capacity(capacity),
-        }
+        Self::with_height(0)
     }
 
     pub fn with_height(height: usize) -> Self {
-        let capacity = 2usize.pow(height as u32) - 1;
-        let mut bt = Self::with_capacity(capacity);
-        for _ in 0..capacity {
-            bt.values.push(None);
+        Self {
+            values: HashMap::new(),
+            height,
         }
-        bt
     }
 
     pub fn insert(&mut self, index: usize, value: T) {
-        self.values[index] = Some(value);
+        assert!(index < self.len());
+        self.values.insert(index, value);
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
-        self.values[index].as_ref()
-    }
-
-    pub fn grow(&mut self, new_height: usize) {
-        if new_height <= self.height() {
-            return;
-        }
-        let new_len = 2usize.pow(new_height as u32) - 1;
-        let additional = new_len - self.len();
-        self.values.reserve(additional);
-        for _ in 0..additional {
-            self.values.push(None);
-        }
+        self.values.get(&index)
     }
 
     pub fn len(&self) -> usize {
-        self.values.len()
+        2usize.pow(self.height as u32) - 1
     }
 
     pub fn height(&self) -> usize {
@@ -119,9 +104,9 @@ impl<'a, T> Iterator for BinaryTreeLeafIterator<'a, T> {
 
 impl<T> FromIterator<T> for BinaryTree<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut bt = Self::new();
-        bt.values.extend(iter.into_iter().map(Some));
-        bt
+        let values = HashMap::from_iter(iter.into_iter().enumerate());
+        let height = values.len().ilog2() as usize + 1;
+        Self { values, height }
     }
 }
 
@@ -215,18 +200,6 @@ mod tests {
     }
 
     #[test]
-    fn test_grow() {
-        let mut bt = BinaryTree::<usize>::new();
-        assert_eq!(bt.height(), 0);
-
-        bt.grow(1);
-        assert_eq!(bt.height(), 1);
-
-        bt.grow(2);
-        assert_eq!(bt.height(), 2);
-    }
-
-    #[test]
     fn test_path_to_root() {
         let bt = BinaryTree::from_iter(0..=6);
 
@@ -275,5 +248,25 @@ mod tests {
         assert_eq!(first_index_at_height(2), 1);
         assert_eq!(first_index_at_height(3), 3);
         assert_eq!(first_index_at_height(4), 7);
+    }
+
+    #[test]
+    fn test_len() {
+        assert_eq!(BinaryTree::<()>::with_height(1).len(), 1);
+        assert_eq!(BinaryTree::<()>::with_height(2).len(), 3);
+        assert_eq!(BinaryTree::<()>::with_height(3).len(), 7);
+        assert_eq!(BinaryTree::<()>::with_height(4).len(), 15);
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let bt = BinaryTree::from_iter(0..=0);
+        assert_eq!(bt.height, 1);
+
+        let bt = BinaryTree::from_iter(0..=2);
+        assert_eq!(bt.height, 2);
+
+        let bt = BinaryTree::from_iter(0..=6);
+        assert_eq!(bt.height, 3);
     }
 }

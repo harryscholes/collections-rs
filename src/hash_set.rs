@@ -90,14 +90,14 @@ where
 
 impl<T> PartialEq for HashSet<T>
 where
-    T: PartialEq + std::cmp::Ord,
+    T: PartialEq + Hash,
 {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<T> Eq for HashSet<T> where T: Eq + std::cmp::Ord {}
+impl<T> Eq for HashSet<T> where T: Eq + Hash {}
 
 pub struct Iter<'a, T>(hash_map::Iter<'a, T, ()>);
 

@@ -244,26 +244,28 @@ where
 
 impl<K, V> PartialEq for HashMap<K, V>
 where
-    K: PartialEq + std::cmp::Ord,
-    V: PartialEq + std::cmp::Ord,
+    K: PartialEq + Hash,
+    V: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         if self.len != other.len {
             return false;
         }
 
-        let mut self_vec: Vector<_> = self.iter().collect();
-        let mut other_vec: Vector<_> = other.iter().collect();
-        self_vec.sort();
-        other_vec.sort();
-        self_vec == other_vec
+        for (k, v) in self.iter() {
+            if other.get(k) != Some(v) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
 impl<K, V> Eq for HashMap<K, V>
 where
-    K: Eq + std::cmp::Ord,
-    V: Eq + std::cmp::Ord,
+    K: Eq + Hash,
+    V: Eq,
 {
 }
 
