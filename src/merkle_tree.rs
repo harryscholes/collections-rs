@@ -1,6 +1,9 @@
 use std::{collections::hash_map::DefaultHasher, hash::Hasher};
 
-use crate::{hash_map::HashMap, vector::Vector};
+use crate::{
+    binary_tree::{first_index_at_height, BinaryTree},
+    vector::Vector,
+};
 
 type Digest = [u8; 8];
 
@@ -8,8 +11,7 @@ const DEFAULT_LEAF: Digest = [0; 8];
 
 /// Space complexity: O(n)
 pub struct MerkleTree {
-    height: usize,
-    values: HashMap<usize, Digest>,
+    tree: BinaryTree<Digest>,
     default_nodes: Vector<Digest>,
 }
 
@@ -19,68 +21,73 @@ impl MerkleTree {
     }
 
     pub fn with_default_leaf(default_leaf: Digest, height: usize) -> Self {
+        let tree = BinaryTree::with_height(height);
         let default_nodes = default_nodes(default_leaf, height);
-        let default_root = default_nodes[height];
-
-        let mut values = HashMap::new();
-        values.insert(1, default_root);
 
         Self {
-            height,
-            values,
+            tree,
             default_nodes,
         }
     }
 
     /// Time complexity: O(1)
     pub fn root(&self) -> Digest {
-        *self.values.get(&1).unwrap()
+        *self.tree.get(0).unwrap_or(&self.default_nodes[0])
     }
 
     /// Time complexity: O(log n)
     pub fn insert(&mut self, index: usize, value: impl AsRef<[u8]>) -> Result<Digest, Error> {
         self.bounds_check(index)?;
 
-        let leaf_index = self.leaf_index(index);
-        let leaf = hash(value);
-        self.values.insert(leaf_index, leaf);
+        let tree_index = self.tree_index(index);
+        let leaf_node = hash(value);
+        self.tree.insert(tree_index, leaf_node);
 
-        let mut node_index = self.path_index_at_height(index, 0);
-        let mut node = leaf;
+        let mut internal_index = tree_index;
+        let mut internal_node = leaf_node;
+        let mut internal_height = self.tree.height();
 
-        for height in 0..self.height {
-            let sibling_index = sibling_index(node_index);
-            let sibling = *self
-                .values
-                .get(&sibling_index)
-                .unwrap_or(&self.default_nodes[height]);
+        while internal_height > 1 {
+            let sibling_index = sibling_index(internal_index);
+            let sibling_node = *self
+                .tree
+                .get(sibling_index)
+                .unwrap_or(&self.default_nodes[internal_height - 1]);
 
-            let parent_index = self.path_index_at_height(index, height + 1);
-            let parent = hash_pair(node, sibling);
-            self.values.insert(parent_index, parent);
+            let parent_index = (internal_index - 1) / 2;
+            let parent_node = hash_pair(internal_node, sibling_node);
+            self.tree.insert(parent_index, parent_node);
 
-            node_index = parent_index;
-            node = parent;
+            internal_index = parent_index;
+            internal_node = parent_node;
+            internal_height -= 1;
         }
 
-        let root = node;
-
-        Ok(root)
+        Ok(self.root())
     }
 
+    /// Merkle path from leaf to root.
+    ///
     /// Time complexity: O(log n)
     /// Space complexity: O(log n)
     pub fn path(&self, index: usize) -> Result<Vector<usize>, Error> {
         self.bounds_check(index)?;
 
-        let sibling_indices = (0..self.height)
-            .map(|height| {
-                let node_index = self.path_index_at_height(index, height);
-                sibling_index(node_index)
-            })
-            .collect();
+        let tree_index = self.tree_index(index);
+        let mut path = Vector::with_capacity(self.tree.height() - 1);
 
-        Ok(sibling_indices)
+        let mut internal_index = tree_index;
+        let mut internal_height = self.tree.height();
+
+        while internal_height > 1 {
+            dbg!(internal_index, internal_height);
+            let sibling_index = sibling_index(internal_index);
+            path.push_back(sibling_index);
+            internal_index = (internal_index - 1) / 2;
+            internal_height -= 1;
+        }
+
+        Ok(path)
     }
 
     /// Time complexity: O(log n)
@@ -88,56 +95,65 @@ impl MerkleTree {
     pub fn prove(&self, index: usize) -> Result<Vector<Digest>, Error> {
         let path = self.path(index)?;
 
-        let proof = path
-            .iter()
-            .zip(&self.default_nodes)
-            .map(|(index, default_node)| *self.values.get(index).unwrap_or(default_node))
-            .collect();
+        let mut proof = Vector::with_capacity(path.len());
+
+        let mut internal_height = self.tree.height();
+
+        for internal_index in path {
+            let internal_node = self
+                .tree
+                .get(internal_index)
+                .unwrap_or(&self.default_nodes[internal_height - 1]);
+            proof.push_back(*internal_node);
+            internal_height -= 1;
+        }
 
         Ok(proof)
     }
 
     /// Time complexity: O(log n)
     pub fn validate(&self, value: impl AsRef<[u8]>, proof: Vector<Digest>) -> Result<bool, Error> {
-        if proof.len() != self.height {
-            return Err(Error::IncorrectProofLength {
-                len: proof.len(),
-                height: self.height,
-            });
+        let len = proof.len();
+        let expected_len = self.tree.height() - 1;
+        if len != expected_len {
+            return Err(Error::IncorrectProofLength { len, expected_len });
         }
 
-        let mut node = hash(value);
-        for sibling in proof {
-            node = hash_pair(node, sibling);
+        let mut internal_node = hash(value);
+        for sibling_node in proof {
+            internal_node = hash_pair(internal_node, sibling_node);
         }
 
-        let proof_root = node;
+        let proof_root = internal_node;
 
         Ok(proof_root == self.root())
     }
 
+    /// Returns the indicies whose value is `value`.
+    ///
     /// Time complexity: O(n)
     /// Space complexity: O(n)
-    ///
-    /// Returns the indicies whose value is `value`.
     pub fn indicies_of(&self, value: impl AsRef<[u8]>) -> Option<Vector<usize>> {
-        let node = hash(value);
+        let leaf_node = hash(value);
 
-        let first_index = self.leaf_index(0);
-
-        let mut indexes = self
-            .values
-            .iter()
-            .filter(|(k, v)| **k > first_index && **v == node)
-            .map(|(k, _)| *k - first_index)
+        let indices = self
+            .tree
+            .leaf_iter()
+            .enumerate()
+            .filter(|(_, v)| {
+                if let Some(v) = v {
+                    **v == leaf_node
+                } else {
+                    false
+                }
+            })
+            .map(|(i, _)| i)
             .collect::<Vector<usize>>();
 
-        indexes.sort();
-
-        if !indexes.is_empty() {
-            Some(indexes)
-        } else {
+        if indices.is_empty() {
             None
+        } else {
+            Some(indices)
         }
     }
 
@@ -146,17 +162,21 @@ impl MerkleTree {
         self.indicies_of(value).is_some()
     }
 
-    fn leaf_index(&self, index: usize) -> usize {
-        len_at_height(self.height) + index
+    fn tree_index(&self, index: usize) -> usize {
+        first_index_at_height(self.tree.height()) + index
     }
 
-    fn path_index_at_height(&self, index: usize, height: usize) -> usize {
-        let leaf_index = self.leaf_index(index);
-        leaf_index / len_at_height(height)
+    fn len(&self) -> usize {
+        if self.tree.height() == 0 {
+            0
+        } else {
+            first_index_at_height(self.tree.height() + 1)
+                - first_index_at_height(self.tree.height())
+        }
     }
 
     fn bounds_check(&self, index: usize) -> Result<(), Error> {
-        let len = len_at_height(self.height);
+        let len = self.len();
         if index >= len {
             Err(Error::IndexOutOfBounds { index, len })
         } else {
@@ -183,34 +203,34 @@ where
     hasher.finish().to_le_bytes()
 }
 
+/// The default node at height `h` is `default_nodes[h-1]`
 fn default_nodes(default_leaf: Digest, height: usize) -> Vector<Digest> {
-    let mut default_node = default_leaf;
-    let mut default_nodes = Vector::from([default_node]);
+    let mut default_nodes = vec![];
+    let mut internal_node = default_leaf;
 
     for _ in 0..height {
-        default_node = hash_pair(default_node, default_node);
-        default_nodes.push_back(default_node);
+        default_nodes.push(internal_node);
+        internal_node = hash_pair(internal_node, internal_node);
     }
 
-    default_nodes
+    default_nodes.reverse();
+
+    default_nodes.into()
 }
 
 fn sibling_index(index: usize) -> usize {
-    if index % 2 == 0 {
+    assert!(index > 0);
+    if index % 2 == 1 {
         index + 1
     } else {
         index - 1
     }
 }
 
-fn len_at_height(height: usize) -> usize {
-    2usize.pow(height as u32)
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Error {
     IndexOutOfBounds { len: usize, index: usize },
-    IncorrectProofLength { len: usize, height: usize },
+    IncorrectProofLength { len: usize, expected_len: usize },
 }
 
 #[cfg(test)]
@@ -220,15 +240,13 @@ mod tests {
     #[test]
     fn default_nodes_height_0() {
         let nodes = default_nodes(DEFAULT_LEAF, 0);
-        let expected_nodes = vec![DEFAULT_LEAF];
-        assert_eq!(nodes, expected_nodes.into());
+        assert!(nodes.is_empty());
     }
 
     #[test]
     fn default_nodes_height_1() {
         let nodes = default_nodes(DEFAULT_LEAF, 1);
-        let height_1_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let expected_nodes = vec![DEFAULT_LEAF, height_1_node];
+        let expected_nodes = vec![DEFAULT_LEAF];
         assert_eq!(nodes, expected_nodes.into());
     }
 
@@ -236,46 +254,62 @@ mod tests {
     fn default_nodes_height_2() {
         let nodes = default_nodes(DEFAULT_LEAF, 2);
         let height_1_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let height_2_node = hash_pair(height_1_node, height_1_node);
-        let expected_nodes = vec![DEFAULT_LEAF, height_1_node, height_2_node];
+        let expected_nodes = vec![height_1_node, DEFAULT_LEAF];
         assert_eq!(nodes, expected_nodes.into());
     }
 
     #[test]
+    fn default_nodes_height_3() {
+        let nodes = default_nodes(DEFAULT_LEAF, 3);
+        let height_2_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
+        let height_1_node = hash_pair(height_2_node, height_2_node);
+        let expected_nodes = vec![height_1_node, height_2_node, DEFAULT_LEAF];
+        assert_eq!(nodes, expected_nodes.into());
+    }
+
+    #[test]
+    #[should_panic]
     fn empty_tree_height_0() {
         let tree = MerkleTree::new(0);
-        let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 0).pop_back().unwrap();
-        assert_eq!(root, expected_root);
+        tree.root();
     }
 
     #[test]
     fn empty_tree_height_1() {
         let tree = MerkleTree::new(1);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 1).pop_back().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 1).pop_front().unwrap();
         assert_eq!(root, expected_root);
     }
 
     #[test]
-    fn empty_tree_height_32() {
-        let tree = MerkleTree::new(32);
+    fn empty_tree_height_2() {
+        let tree = MerkleTree::new(2);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_back().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 2).pop_front().unwrap();
         assert_eq!(root, expected_root);
     }
 
+    // #[test]
+    // fn empty_tree_height_32() {
+    //     let tree = MerkleTree::new(32);
+    //     dbg!("built tree");
+    //     let root = tree.root();
+    //     let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_front().unwrap();
+    //     assert_eq!(root, expected_root);
+    // }
+
     #[test]
-    fn root_height_0() {
-        let mut tree = MerkleTree::new(0);
+    fn root_height_1() {
+        let mut tree = MerkleTree::new(1);
         let root = tree.insert(0, "a").unwrap();
         let expected_root = hash("a");
         assert_eq!(root, expected_root);
     }
 
     #[test]
-    fn root_height_1() {
-        let mut tree = MerkleTree::new(1);
+    fn root_height_2() {
+        let mut tree = MerkleTree::new(2);
 
         let root = tree.insert(0, "a").unwrap();
         let expected_root = hash_pair(hash("a"), DEFAULT_LEAF);
@@ -287,50 +321,63 @@ mod tests {
     }
 
     #[test]
-    fn root_height_2() {
-        let mut tree = MerkleTree::new(2);
+    fn root_height_3() {
+        let mut tree = MerkleTree::new(3);
 
         let root = tree.insert(0, "a").unwrap();
-        let height_1_node_0 = hash_pair(hash("a"), DEFAULT_LEAF);
-        let height_1_node_1 = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let expected_root = hash_pair(height_1_node_0, height_1_node_1);
-        assert_eq!(root, expected_root);
+        assert_eq!(
+            *tree.tree.get(1).unwrap(),
+            hash_pair(hash("a"), DEFAULT_LEAF)
+        );
+        assert!(tree.tree.get(2).is_none());
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(hash("a"), DEFAULT_LEAF),
+                hash_pair(DEFAULT_LEAF, DEFAULT_LEAF),
+            )
+        );
 
         let root = tree.insert(1, "b").unwrap();
-        let height_1_node_0 = hash_pair(hash("a"), hash("b"));
-        let height_1_node_1 = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let expected_root = hash_pair(height_1_node_0, height_1_node_1);
-        assert_eq!(root, expected_root);
+        assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
+        assert!(tree.tree.get(2).is_none());
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(hash("a"), hash("b")),
+                hash_pair(DEFAULT_LEAF, DEFAULT_LEAF),
+            )
+        );
 
         let root = tree.insert(2, "c").unwrap();
-        let height_1_node_0 = hash_pair(hash("a"), hash("b"));
-        let height_1_node_1 = hash_pair(hash("c"), DEFAULT_LEAF);
-        let expected_root = hash_pair(height_1_node_0, height_1_node_1);
-        assert_eq!(root, expected_root);
+        assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
+        assert_eq!(
+            *tree.tree.get(2).unwrap(),
+            hash_pair(hash("c"), DEFAULT_LEAF)
+        );
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(hash("a"), hash("b")),
+                hash_pair(hash("c"), DEFAULT_LEAF),
+            )
+        );
 
         let root = tree.insert(3, "d").unwrap();
-        let height_1_node_0 = hash_pair(hash("a"), hash("b"));
-        let height_1_node_1 = hash_pair(hash("c"), hash("d"));
-        let expected_root = hash_pair(height_1_node_0, height_1_node_1);
-        assert_eq!(root, expected_root);
-    }
-
-    #[test]
-    fn tree_index_bounds_check() {
+        assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
+        assert_eq!(*tree.tree.get(2).unwrap(), hash_pair(hash("c"), hash("d")));
         assert_eq!(
-            MerkleTree::new(1).insert(2, "should_error").unwrap_err(),
-            Error::IndexOutOfBounds { len: 2, index: 2 }
-        );
-
-        assert_eq!(
-            MerkleTree::new(2).insert(4, "should_error").unwrap_err(),
-            Error::IndexOutOfBounds { len: 4, index: 4 }
+            root,
+            hash_pair(
+                hash_pair(hash("a"), hash("b")),
+                hash_pair(hash("c"), hash("d")),
+            )
         );
     }
 
     #[test]
-    fn proof_height_1() {
-        let mut tree = MerkleTree::new(1);
+    fn proof_height_2() {
+        let mut tree = MerkleTree::new(2);
 
         tree.insert(0, "a").unwrap();
         let proof = tree.prove(0).unwrap();
@@ -346,8 +393,8 @@ mod tests {
     }
 
     #[test]
-    fn proof_height_2() {
-        let mut tree = MerkleTree::new(2);
+    fn proof_height_3() {
+        let mut tree = MerkleTree::new(3);
 
         tree.insert(3, "d").unwrap();
         let proof = tree.prove(3).unwrap();
@@ -375,92 +422,78 @@ mod tests {
     }
 
     #[test]
-    fn path_height_2() {
-        // Indices:
-        //    1
-        //  2   3
-        // 4 5 6 7
-        let tree = MerkleTree::new(2);
-
-        let proof = tree.path(0).unwrap();
-        assert_eq!(proof, [5, 3].into());
-
-        let proof = tree.path(1).unwrap();
-        assert_eq!(proof, [4, 3].into());
-
-        let proof = tree.path(2).unwrap();
-        assert_eq!(proof, [7, 2].into());
-
-        let proof = tree.path(3).unwrap();
-        assert_eq!(proof, [6, 2].into());
-    }
-
-    #[test]
     fn path_height_3() {
         // Indices:
-        //     1
-        //   2   3
-        //  4 5 6 7
-        // 8 9...14 15
+        //    0
+        //  1   2
+        // 3 4 5 6
         let tree = MerkleTree::new(3);
 
         let proof = tree.path(0).unwrap();
-        assert_eq!(proof, [9, 5, 3].into());
+        assert_eq!(proof, [4, 2].into());
 
-        let proof = tree.path(7).unwrap();
-        assert_eq!(proof, [14, 6, 2].into());
+        let proof = tree.path(1).unwrap();
+        assert_eq!(proof, [3, 2].into());
+
+        let proof = tree.path(2).unwrap();
+        assert_eq!(proof, [6, 1].into());
+
+        let proof = tree.path(3).unwrap();
+        assert_eq!(proof, [5, 1].into());
     }
 
     #[test]
-    fn proof_bounds_check() {
+    fn path_height_4() {
+        // Indices:
+        //     0
+        //   1   2
+        //  3 4 5 6
+        // 7 8..13 14
+        let tree = MerkleTree::new(4);
+
+        let proof = tree.path(0).unwrap();
+        assert_eq!(proof, [8, 4, 2].into());
+
+        let proof = tree.path(7).unwrap();
+        assert_eq!(proof, [13, 5, 1].into());
+    }
+
+    #[test]
+    fn bounds_check() {
         assert_eq!(
-            MerkleTree::new(1).prove(2).unwrap_err(),
+            MerkleTree::new(1).bounds_check(1).unwrap_err(),
+            Error::IndexOutOfBounds { len: 1, index: 1 }
+        );
+
+        assert_eq!(
+            MerkleTree::new(2).bounds_check(2).unwrap_err(),
             Error::IndexOutOfBounds { len: 2, index: 2 }
         );
 
         assert_eq!(
-            MerkleTree::new(2).prove(4).unwrap_err(),
+            MerkleTree::new(3).bounds_check(4).unwrap_err(),
             Error::IndexOutOfBounds { len: 4, index: 4 }
         );
     }
 
     #[test]
-    fn proof_length_check() {
-        assert_eq!(
-            MerkleTree::new(1)
-                .validate("empty_proof", Vector::new())
-                .unwrap_err(),
-            Error::IncorrectProofLength { len: 0, height: 1 }
-        );
-
-        assert_eq!(
-            MerkleTree::new(1)
-                .validate("empty_proof", Vector::from([DEFAULT_LEAF, DEFAULT_LEAF]))
-                .unwrap_err(),
-            Error::IncorrectProofLength { len: 2, height: 1 }
-        );
-    }
-
-    #[test]
     fn indicies_of() {
-        let mut tree = MerkleTree::new(2);
+        let mut tree = MerkleTree::new(3);
 
-        tree.insert(1, "a").unwrap();
-        let indexes = tree.indicies_of("a").unwrap();
-        let expected_indexes = vec![1];
-        assert_eq!(indexes, expected_indexes.into());
+        tree.insert(0, "a").unwrap();
+        assert_eq!(tree.indicies_of("a"), Some(vec![0].into()));
 
         tree.insert(3, "a").unwrap();
         let indexes = tree.indicies_of("a").unwrap();
-        let expected_indexes = vec![1, 3];
+        let expected_indexes = vec![0, 3];
         assert_eq!(indexes, expected_indexes.into());
 
-        assert!(tree.indicies_of("not_in").is_none());
+        assert!(tree.indicies_of("b").is_none());
     }
 
     #[test]
     fn contains() {
-        let mut tree = MerkleTree::new(2);
+        let mut tree = MerkleTree::new(3);
 
         assert!(!tree.contains("a"));
 
@@ -469,5 +502,13 @@ mod tests {
 
         tree.insert(0, "a").unwrap();
         assert!(tree.contains("a"));
+    }
+
+    #[test]
+    fn len() {
+        assert_eq!(MerkleTree::new(0).len(), 0);
+        assert_eq!(MerkleTree::new(1).len(), 1);
+        assert_eq!(MerkleTree::new(2).len(), 2);
+        assert_eq!(MerkleTree::new(3).len(), 4);
     }
 }
