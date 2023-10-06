@@ -1,3 +1,4 @@
+pub mod binary_tree;
 pub mod circular_buffer;
 pub mod dequeue;
 pub mod graph;
