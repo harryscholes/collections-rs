@@ -2,6 +2,7 @@ use std::{collections::hash_map::DefaultHasher, hash::Hasher};
 
 use crate::{
     binary_tree::{first_index_at_height, BinaryTree},
+    hash_map::HashMap,
     vector::Vector,
 };
 
@@ -12,7 +13,7 @@ const DEFAULT_LEAF: Digest = [0; 8];
 /// Space complexity: O(n)
 pub struct MerkleTree {
     tree: BinaryTree<Digest>,
-    default_nodes: Vector<Digest>,
+    default_nodes: HashMap<usize, Digest>,
 }
 
 impl MerkleTree {
@@ -32,7 +33,7 @@ impl MerkleTree {
 
     /// Time complexity: O(1)
     pub fn root(&self) -> Digest {
-        *self.tree.get(0).unwrap_or(&self.default_nodes[0])
+        *self.tree.get(0).unwrap_or(&self.default_nodes[1])
     }
 
     /// Time complexity: O(log n)
@@ -52,7 +53,7 @@ impl MerkleTree {
             let sibling_node = *self
                 .tree
                 .get(sibling_index)
-                .unwrap_or(&self.default_nodes[internal_height - 1]);
+                .unwrap_or(&self.default_nodes[internal_height]);
 
             let parent_index = (internal_index - 1) / 2;
             let parent_node = hash_pair(internal_node, sibling_node);
@@ -80,7 +81,6 @@ impl MerkleTree {
         let mut internal_height = self.tree.height();
 
         while internal_height > 1 {
-            dbg!(internal_index, internal_height);
             let sibling_index = sibling_index(internal_index);
             path.push_back(sibling_index);
             internal_index = (internal_index - 1) / 2;
@@ -105,7 +105,7 @@ impl MerkleTree {
             let internal_node = self
                 .tree
                 .get(internal_index)
-                .unwrap_or(&self.default_nodes[internal_height - 1]);
+                .unwrap_or(&self.default_nodes[internal_height]);
             proof.push_back(*internal_node);
             internal_height -= 1;
         }
@@ -220,18 +220,19 @@ where
 }
 
 /// The default node at height `h` is `default_nodes[h-1]`
-fn default_nodes(default_leaf: Digest, height: usize) -> Vector<Digest> {
-    let mut default_nodes = vec![];
+fn default_nodes(default_leaf: Digest, height: usize) -> HashMap<usize, Digest> {
+    let mut default_nodes = HashMap::new();
     let mut internal_node = default_leaf;
 
-    for _ in 0..height {
-        default_nodes.push(internal_node);
+    for h in (1..=height).rev() {
+        default_nodes.insert(h, internal_node);
         internal_node = hash_pair(internal_node, internal_node);
     }
 
-    default_nodes.reverse();
+    // default_nodes.reverse();
 
-    default_nodes.into()
+    // default_nodes.into()
+    default_nodes
 }
 
 fn sibling_index(index: usize) -> usize {
@@ -271,25 +272,29 @@ mod tests {
     #[test]
     fn default_nodes_height_1() {
         let nodes = default_nodes(DEFAULT_LEAF, 1);
-        let expected_nodes = vec![DEFAULT_LEAF];
-        assert_eq!(nodes, expected_nodes.into());
+        // let expected_nodes = vec![(1, DEFAULT_LEAF)];
+        assert_eq!(nodes[1], DEFAULT_LEAF);
     }
 
     #[test]
     fn default_nodes_height_2() {
         let nodes = default_nodes(DEFAULT_LEAF, 2);
-        let height_1_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let expected_nodes = vec![height_1_node, DEFAULT_LEAF];
-        assert_eq!(nodes, expected_nodes.into());
+        assert_eq!(nodes[2], DEFAULT_LEAF);
+        assert_eq!(nodes[1], hash_pair(DEFAULT_LEAF, DEFAULT_LEAF));
     }
 
     #[test]
     fn default_nodes_height_3() {
         let nodes = default_nodes(DEFAULT_LEAF, 3);
-        let height_2_node = hash_pair(DEFAULT_LEAF, DEFAULT_LEAF);
-        let height_1_node = hash_pair(height_2_node, height_2_node);
-        let expected_nodes = vec![height_1_node, height_2_node, DEFAULT_LEAF];
-        assert_eq!(nodes, expected_nodes.into());
+        assert_eq!(nodes[3], DEFAULT_LEAF);
+        assert_eq!(nodes[2], hash_pair(DEFAULT_LEAF, DEFAULT_LEAF));
+        assert_eq!(
+            nodes[1],
+            hash_pair(
+                hash_pair(DEFAULT_LEAF, DEFAULT_LEAF),
+                hash_pair(DEFAULT_LEAF, DEFAULT_LEAF)
+            )
+        );
     }
 
     #[test]
@@ -303,7 +308,7 @@ mod tests {
     fn empty_tree_height_1() {
         let tree = MerkleTree::with_height(1);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 1).pop_front().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 1)[1];
         assert_eq!(root, expected_root);
     }
 
@@ -311,7 +316,7 @@ mod tests {
     fn empty_tree_height_2() {
         let tree = MerkleTree::with_height(2);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 2).pop_front().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 2)[1];
         assert_eq!(root, expected_root);
     }
 
@@ -319,7 +324,7 @@ mod tests {
     fn empty_tree_height_32() {
         let tree = MerkleTree::with_height(32);
         let root = tree.root();
-        let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_front().unwrap();
+        let expected_root = default_nodes(DEFAULT_LEAF, 32)[1];
         assert_eq!(root, expected_root);
     }
 
@@ -336,12 +341,10 @@ mod tests {
         let mut tree = MerkleTree::with_height(2);
 
         let root = tree.insert(0, "a");
-        let expected_root = hash_pair(hash("a"), DEFAULT_LEAF);
-        assert_eq!(root, expected_root);
+        assert_eq!(root, hash_pair(hash("a"), DEFAULT_LEAF));
 
         let root = tree.insert(1, "b");
-        let expected_root = hash_pair(hash("a"), hash("b"));
-        assert_eq!(root, expected_root);
+        assert_eq!(root, hash_pair(hash("a"), hash("b")));
     }
 
     #[test]
@@ -388,6 +391,67 @@ mod tests {
         );
 
         let root = tree.insert(3, "d");
+        assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
+        assert_eq!(*tree.tree.get(2).unwrap(), hash_pair(hash("c"), hash("d")));
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(hash("a"), hash("b")),
+                hash_pair(hash("c"), hash("d")),
+            )
+        );
+    }
+
+    #[test]
+    fn root_height_3_sparse() {
+        let mut tree = MerkleTree::with_height(3);
+
+        let root = tree.insert(3, "d");
+        assert!(tree.tree.get(1).is_none());
+        assert_eq!(
+            *tree.tree.get(2).unwrap(),
+            hash_pair(DEFAULT_LEAF, hash("d"))
+        );
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(DEFAULT_LEAF, DEFAULT_LEAF),
+                hash_pair(DEFAULT_LEAF, hash("d")),
+            )
+        );
+
+        let root = tree.insert(1, "b");
+        assert_eq!(
+            *tree.tree.get(1).unwrap(),
+            hash_pair(DEFAULT_LEAF, hash("b"))
+        );
+        assert_eq!(
+            *tree.tree.get(2).unwrap(),
+            hash_pair(DEFAULT_LEAF, hash("d"))
+        );
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(DEFAULT_LEAF, hash("b")),
+                hash_pair(DEFAULT_LEAF, hash("d")),
+            )
+        );
+
+        let root = tree.insert(2, "c");
+        assert_eq!(
+            *tree.tree.get(1).unwrap(),
+            hash_pair(DEFAULT_LEAF, hash("b"))
+        );
+        assert_eq!(*tree.tree.get(2).unwrap(), hash_pair(hash("c"), hash("d")));
+        assert_eq!(
+            root,
+            hash_pair(
+                hash_pair(DEFAULT_LEAF, hash("b")),
+                hash_pair(hash("c"), hash("d")),
+            )
+        );
+
+        let root = tree.insert(0, "a");
         assert_eq!(*tree.tree.get(1).unwrap(), hash_pair(hash("a"), hash("b")));
         assert_eq!(*tree.tree.get(2).unwrap(), hash_pair(hash("c"), hash("d")));
         assert_eq!(

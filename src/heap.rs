@@ -468,7 +468,6 @@ mod test_min_heap {
         }
         for i in 1..=10 {
             let el = mh.pop();
-            dbg!(el, &mh.0 .0);
             assert_eq!(el, Some(i));
         }
     }

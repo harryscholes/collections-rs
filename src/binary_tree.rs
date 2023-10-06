@@ -24,6 +24,10 @@ impl<T> BinaryTree<T> {
         self.values.insert(index, value);
     }
 
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        self.values.remove(&index)
+    }
+
     pub fn get(&self, index: usize) -> Option<&T> {
         self.values.get(&index)
     }
