@@ -2,6 +2,10 @@ use crate::vector::Vector;
 use std::cmp::Reverse;
 
 pub trait Heap<T> {
+    fn new() -> Self;
+
+    fn with_capacity(capacity: usize) -> Self;
+
     fn push(&mut self, el: T);
 
     fn pop(&mut self) -> Option<T>;
@@ -17,12 +21,21 @@ pub trait Heap<T> {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct MaxHeap<T>(Vector<T>);
 
 impl<T> Heap<T> for MaxHeap<T>
 where
     T: Ord,
 {
+    fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self(Vector::with_capacity(capacity))
+    }
+
     /// Time complexity: O(log(n))
     fn push(&mut self, el: T) {
         self.0.push_back(el);
@@ -59,16 +72,6 @@ where
     /// Time complexity: O(1)
     fn len(&self) -> usize {
         self.0.len()
-    }
-}
-
-impl<T> MaxHeap<T> {
-    pub fn new() -> Self {
-        Self::with_capacity(0)
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(Vector::with_capacity(capacity))
     }
 }
 
@@ -169,21 +172,21 @@ where
     }
 }
 
-impl<T> Default for MaxHeap<T>
-where
-    T: Ord,
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[derive(Debug, Default)]
 pub struct MinHeap<T>(MaxHeap<Reverse<T>>);
 
 impl<T> Heap<T> for MinHeap<T>
 where
     T: Ord,
 {
+    fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self(MaxHeap::with_capacity(capacity))
+    }
+
     /// Time complexity: O(log(n))
     fn push(&mut self, el: T) {
         self.0.push(Reverse(el))
@@ -215,25 +218,6 @@ where
     /// Time complexity: O(1)
     fn len(&self) -> usize {
         self.0.len()
-    }
-}
-
-impl<T> MinHeap<T> {
-    fn new() -> Self {
-        Self::with_capacity(0)
-    }
-
-    fn with_capacity(capacity: usize) -> Self {
-        Self(MaxHeap::with_capacity(capacity))
-    }
-}
-
-impl<T> Default for MinHeap<T>
-where
-    T: Ord,
-{
-    fn default() -> Self {
-        Self::new()
     }
 }
 

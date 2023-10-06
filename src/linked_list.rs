@@ -5,7 +5,7 @@ use std::{
 };
 
 /// Space complexity: O(n)
-#[derive(Debug, Eq)]
+#[derive(Debug, Eq, Default)]
 pub struct LinkedList<T> {
     head: Link<T>,
     tail: Link<T>,
@@ -198,12 +198,6 @@ impl<T> LinkedList<T> {
     /// Time complexity: O(n)
     fn node_iter_mut(&mut self) -> NodeIterMut<'_, T> {
         NodeIterMut::new(self)
-    }
-}
-
-impl<T> Default for LinkedList<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

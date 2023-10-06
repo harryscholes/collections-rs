@@ -6,7 +6,7 @@ use std::{
 use crate::{queue::Queue, stack::Stack};
 
 /// Space complexity: O(V+E) on average, O(V^2) worst case
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Graph<T> {
     edges: HashMap<T, HashSet<T>>, // Adjacency list
 }
@@ -114,12 +114,6 @@ where
             }
         }
         false
-    }
-}
-
-impl<T> Default for Graph<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

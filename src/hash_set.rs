@@ -3,7 +3,7 @@ use std::hash::Hash;
 use crate::hash_map::{self, HashMap};
 
 /// Space complexity: O(n)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HashSet<T>(HashMap<T, ()>);
 
 impl<T> HashSet<T>
@@ -76,15 +76,6 @@ impl<T> HashSet<T> {
     /// Time complexity: O(n)
     pub fn iter(&self) -> Iter<'_, T> {
         Iter(self.0.iter())
-    }
-}
-
-impl<T> Default for HashSet<T>
-where
-    T: PartialEq + Hash,
-{
-    fn default() -> Self {
-        Self::new()
     }
 }
 

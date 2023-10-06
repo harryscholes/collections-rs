@@ -16,7 +16,7 @@ pub struct MerkleTree {
 }
 
 impl MerkleTree {
-    pub fn new(height: usize) -> Self {
+    pub fn with_height(height: usize) -> Self {
         Self::with_default_leaf(DEFAULT_LEAF, height)
     }
 
@@ -270,13 +270,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn empty_tree_height_0() {
-        let tree = MerkleTree::new(0);
+        let tree = MerkleTree::with_height(0);
         tree.root();
     }
 
     #[test]
     fn empty_tree_height_1() {
-        let tree = MerkleTree::new(1);
+        let tree = MerkleTree::with_height(1);
         let root = tree.root();
         let expected_root = default_nodes(DEFAULT_LEAF, 1).pop_front().unwrap();
         assert_eq!(root, expected_root);
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn empty_tree_height_2() {
-        let tree = MerkleTree::new(2);
+        let tree = MerkleTree::with_height(2);
         let root = tree.root();
         let expected_root = default_nodes(DEFAULT_LEAF, 2).pop_front().unwrap();
         assert_eq!(root, expected_root);
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn empty_tree_height_32() {
-        let tree = MerkleTree::new(32);
+        let tree = MerkleTree::with_height(32);
         let root = tree.root();
         let expected_root = default_nodes(DEFAULT_LEAF, 32).pop_front().unwrap();
         assert_eq!(root, expected_root);
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn root_height_1() {
-        let mut tree = MerkleTree::new(1);
+        let mut tree = MerkleTree::with_height(1);
         let root = tree.insert(0, "a").unwrap();
         let expected_root = hash("a");
         assert_eq!(root, expected_root);
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn root_height_2() {
-        let mut tree = MerkleTree::new(2);
+        let mut tree = MerkleTree::with_height(2);
 
         let root = tree.insert(0, "a").unwrap();
         let expected_root = hash_pair(hash("a"), DEFAULT_LEAF);
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn root_height_3() {
-        let mut tree = MerkleTree::new(3);
+        let mut tree = MerkleTree::with_height(3);
 
         let root = tree.insert(0, "a").unwrap();
         assert_eq!(
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn proof_height_2() {
-        let mut tree = MerkleTree::new(2);
+        let mut tree = MerkleTree::with_height(2);
 
         tree.insert(0, "a").unwrap();
         let proof = tree.prove(0).unwrap();
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn proof_height_3() {
-        let mut tree = MerkleTree::new(3);
+        let mut tree = MerkleTree::with_height(3);
 
         tree.insert(3, "d").unwrap();
         let proof = tree.prove(3).unwrap();
@@ -426,7 +426,7 @@ mod tests {
         //    0
         //  1   2
         // 3 4 5 6
-        let tree = MerkleTree::new(3);
+        let tree = MerkleTree::with_height(3);
 
         let proof = tree.path(0).unwrap();
         assert_eq!(proof, [4, 2].into());
@@ -448,7 +448,7 @@ mod tests {
         //   1   2
         //  3 4 5 6
         // 7 8..13 14
-        let tree = MerkleTree::new(4);
+        let tree = MerkleTree::with_height(4);
 
         let proof = tree.path(0).unwrap();
         assert_eq!(proof, [8, 4, 2].into());
@@ -460,24 +460,24 @@ mod tests {
     #[test]
     fn bounds_check() {
         assert_eq!(
-            MerkleTree::new(1).bounds_check(1).unwrap_err(),
+            MerkleTree::with_height(1).bounds_check(1).unwrap_err(),
             Error::IndexOutOfBounds { len: 1, index: 1 }
         );
 
         assert_eq!(
-            MerkleTree::new(2).bounds_check(2).unwrap_err(),
+            MerkleTree::with_height(2).bounds_check(2).unwrap_err(),
             Error::IndexOutOfBounds { len: 2, index: 2 }
         );
 
         assert_eq!(
-            MerkleTree::new(3).bounds_check(4).unwrap_err(),
+            MerkleTree::with_height(3).bounds_check(4).unwrap_err(),
             Error::IndexOutOfBounds { len: 4, index: 4 }
         );
     }
 
     #[test]
     fn indicies_of() {
-        let mut tree = MerkleTree::new(3);
+        let mut tree = MerkleTree::with_height(3);
 
         tree.insert(0, "a").unwrap();
         assert_eq!(tree.indicies_of("a"), Some(vec![0].into()));
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn contains() {
-        let mut tree = MerkleTree::new(3);
+        let mut tree = MerkleTree::with_height(3);
 
         assert!(!tree.contains("a"));
 
@@ -505,9 +505,9 @@ mod tests {
 
     #[test]
     fn len() {
-        assert_eq!(MerkleTree::new(0).len(), 0);
-        assert_eq!(MerkleTree::new(1).len(), 1);
-        assert_eq!(MerkleTree::new(2).len(), 2);
-        assert_eq!(MerkleTree::new(3).len(), 4);
+        assert_eq!(MerkleTree::with_height(0).len(), 0);
+        assert_eq!(MerkleTree::with_height(1).len(), 1);
+        assert_eq!(MerkleTree::with_height(2).len(), 2);
+        assert_eq!(MerkleTree::with_height(3).len(), 4);
     }
 }

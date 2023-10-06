@@ -1,6 +1,6 @@
 use crate::heap::{Heap, MaxHeap};
 
-#[derive(Eq)]
+#[derive(Eq, Default)]
 struct Item<T> {
     value: T,
     priority: usize,
@@ -42,6 +42,7 @@ where
     }
 }
 
+#[derive(Default)]
 pub struct PriorityQueue<T> {
     heap: MaxHeap<Item<T>>,
     age: usize, // FIFO ordering
@@ -117,15 +118,6 @@ where
     /// Time complexity: O(1)
     pub fn is_empty(&self) -> bool {
         self.heap.is_empty()
-    }
-}
-
-impl<T> Default for PriorityQueue<T>
-where
-    T: Ord,
-{
-    fn default() -> Self {
-        Self::new()
     }
 }
 

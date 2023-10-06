@@ -11,7 +11,7 @@ const DEFAULT_CAPACITY: usize = 4;
 const BUCKET_CAPACITY: usize = 4;
 
 /// Space complexity: O(n)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct HashMap<K, V> {
     buckets: Vector<Option<Bucket<K, V>>>,
     len: usize,
@@ -206,15 +206,6 @@ where
     /// Time complexity: O(1)
     pub fn contains_key(&self, key: &K) -> bool {
         self.get(key).is_some()
-    }
-}
-
-impl<K, V> Default for HashMap<K, V>
-where
-    K: PartialEq + Hash,
-{
-    fn default() -> Self {
-        Self::new()
     }
 }
 

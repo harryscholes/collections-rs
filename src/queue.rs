@@ -1,7 +1,7 @@
 use crate::dequeue::{self, Dequeue};
 
 /// Space complexity: O(n)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Queue<T>(Dequeue<T>);
 
 impl<T> Queue<T> {
@@ -26,12 +26,6 @@ impl<T> Queue<T> {
     /// Time complexity: O(1)
     pub fn peek(&self) -> Option<&T> {
         self.0.peek_front()
-    }
-}
-
-impl<T> Default for Queue<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
