@@ -5,7 +5,7 @@ use std::{
     ops::{Deref, Index, IndexMut},
 };
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Debug, Eq)]
 pub struct Vector<T> {
     ptr: *mut T,
     len: usize,
@@ -233,6 +233,17 @@ impl<T> Vector<T> {
         if !self.index_is_in_bounds(index) {
             panic!("`index` {index} is out of bounds");
         }
+    }
+}
+
+impl<T> Clone for Vector<T> {
+    fn clone(&self) -> Self {
+        let mut vec = Self::with_capacity(self.capacity);
+        unsafe {
+            std::ptr::copy(self.ptr, vec.ptr, self.len);
+        }
+        vec.len = self.len;
+        vec
     }
 }
 
@@ -502,6 +513,7 @@ impl<T> IntoIterator for Vector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_instantiate() {
@@ -959,5 +971,136 @@ mod tests {
         let mut v = Vector::from_iter(0..=5);
         v.sort();
         assert_eq!(v, Vector::from_iter(0..=5));
+    }
+
+    proptest! {
+        #[test]
+        fn proptest_back(mut values in any::<Vec<usize>>()) {
+            let mut vector = Vector::new();
+            prop_assert_eq!(vector.first(), None);
+            prop_assert_eq!(vector.last(), None);
+
+            for value in values.clone() {
+                vector.push_back(value);
+                prop_assert_eq!(vector.last(), Some(&value));
+            }
+            prop_assert_eq!(vector.first(), values.first());
+            prop_assert_eq!(vector.last(), values.last());
+
+            for i in 1..values.len() {
+                prop_assert_eq!(unsafe {vector.get_unchecked(i)}, &values[i]);
+                prop_assert_eq!(vector.get(i), Some(&values[i]));
+                prop_assert_eq!(unsafe {vector.get_unchecked_mut(i)}, &mut values[i]);
+                prop_assert_eq!(vector.get_mut(i), Some(&mut values[i]));
+                prop_assert_eq!(vector[i], values[i]);
+                prop_assert_eq!(&mut vector[i], &mut values[i]);
+            }
+
+            let capacity = vector.capacity();
+            prop_assert_eq!(vector.len(), values.len());
+            prop_assert!(capacity >= values.len());
+            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
+            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
+
+            while let Some(value) = vector.pop_back() {
+                prop_assert_eq!(value, values.pop().unwrap());
+            }
+            prop_assert_eq!(vector.len(), 0);
+            prop_assert_eq!(vector.capacity(), capacity);
+            prop_assert_eq!(vector.first(), None);
+            prop_assert_eq!(vector.last(), None);
+        }
+
+        #[test]
+        fn proptest_front(mut values in any::<Vec<usize>>()) {
+            let mut vector = Vector::new();
+            prop_assert_eq!(vector.first(), None);
+            prop_assert_eq!(vector.last(), None);
+
+            for value in values.clone() {
+                vector.push_front(value);
+                prop_assert_eq!(vector.first(), Some(&value));
+            }
+            prop_assert_eq!(vector.first(), values.last());
+            prop_assert_eq!(vector.last(), values.first());
+
+            let mut values_rev = values.clone().into_iter().rev().collect::<Vec<_>>();
+
+            for i in 1..values.len() {
+                prop_assert_eq!(unsafe {vector.get_unchecked(i)}, &values_rev[i]);
+                prop_assert_eq!(vector.get(i), Some(&values_rev[i]));
+                prop_assert_eq!(unsafe {vector.get_unchecked_mut(i)}, &mut values_rev[i]);
+                prop_assert_eq!(vector.get_mut(i), Some(&mut values_rev[i]));
+                prop_assert_eq!(vector[i], values_rev[i]);
+                prop_assert_eq!(&mut vector[i], &mut values_rev[i]);
+            }
+
+            prop_assert_eq!(vector.len(), values.len());
+            prop_assert!(vector.capacity() >= values.len());
+            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values_rev);
+            prop_assert_eq!(&vector, &values_rev.clone().into_iter().collect::<Vector<_>>());
+
+            while let Some(value) = vector.pop_front() {
+                prop_assert_eq!(value, values.pop().unwrap());
+            }
+            prop_assert_eq!(vector.first(), None);
+            prop_assert_eq!(vector.last(), None);
+        }
+
+        #[test]
+        fn proptest_from_iter(values in any::<Vec<usize>>()) {
+            let vector = Vector::from_iter(values.clone());
+
+            prop_assert_eq!(vector.len(), values.len());
+            prop_assert!(vector.capacity() >= values.len());
+            prop_assert_eq!(&vector, &vector);
+            prop_assert_eq!(&vector, &vector.clone());
+            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
+            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
+        }
+
+        #[test]
+        fn proptest_extend(values in any::<Vec<usize>>()) {
+            let mut vector = Vector::new();
+            vector.extend(values.clone());
+
+            prop_assert_eq!(vector.len(), values.len());
+            prop_assert!(vector.capacity() >= values.len());
+            prop_assert_eq!(&vector, &vector);
+            prop_assert_eq!(&vector, &vector.clone());
+            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
+            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
+        }
+
+        #[test]
+        fn proptest_capacity(capacity in 0usize..1000, additional in 0usize..1000) {
+            let mut vector: Vector<usize> = Vector::with_capacity(capacity);
+            prop_assert_eq!(vector.capacity(), capacity);
+            prop_assert_eq!(vector.available(), capacity);
+            prop_assert_eq!(vector.len(), 0);
+            if vector.capacity() > 0 {
+                prop_assert!(!vector.full());
+            } else {
+                prop_assert!(vector.full());
+            }
+
+            for _ in 0..capacity {
+                vector.push_back(0);
+            }
+            prop_assert_eq!(vector.capacity(), capacity);
+            prop_assert_eq!(vector.available(), 0);
+            prop_assert_eq!(vector.len(), capacity);
+            prop_assert!(vector.full());
+
+            vector.reserve(additional);
+            prop_assert_eq!(vector.capacity(), capacity + additional);
+            prop_assert_eq!(vector.available(), additional);
+            prop_assert_eq!(vector.len(), capacity);
+            if vector.capacity() > 0 && additional > 0 {
+                prop_assert!(!vector.full());
+            } else {
+                prop_assert!(vector.full());
+            }
+        }
     }
 }
