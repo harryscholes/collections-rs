@@ -196,10 +196,10 @@ impl<T> Vector<T> {
     }
 
     pub fn rotate_left(&mut self, by: usize) {
-        let by = by % self.len;
+        let by = if self.len == 0 { 0 } else { by % self.len };
         let old_lhs = self.alloc(by);
         unsafe {
-            // Copy the first `by` elements into temporary ptrfer `old_lhs`
+            // Copy the first `by` elements into temporary ptr `old_lhs`
             std::ptr::copy(self.ptr, old_lhs, by);
             // Move the remaining elements `by` indicies to the left
             std::ptr::copy(self.ptr.add(by), self.ptr, self.len - by);
@@ -209,10 +209,10 @@ impl<T> Vector<T> {
     }
 
     pub fn rotate_right(&mut self, by: usize) {
-        let by = by % self.len;
+        let by = if self.len == 0 { 0 } else { by % self.len };
         let old_rhs = self.alloc(by);
         unsafe {
-            // Copy the last `by` elements into temporary ptrfer `old_rhs`
+            // Copy the last `by` elements into temporary ptr `old_rhs`
             std::ptr::copy(self.ptr.add(self.len - by), old_rhs, by);
             // Move the remaining elements `by` indicies to the right
             std::ptr::copy(self.ptr, self.ptr.add(by), self.len - by);
@@ -375,7 +375,7 @@ impl<'a, T> Iter<'a, T> {
     fn new(vec: &'a Vector<T>) -> Self {
         Self {
             forward_index: 0,
-            back_index: vec.len - 1,
+            back_index: vec.len.saturating_sub(1),
             vec,
             finished: false,
         }
@@ -436,7 +436,7 @@ impl<'a, T> IterMut<'a, T> {
     fn new(vec: &'a mut Vector<T>) -> Self {
         Self {
             head: 0,
-            tail: vec.len - 1,
+            tail: vec.len.saturating_sub(1),
             vec,
         }
     }
@@ -513,7 +513,6 @@ impl<T> IntoIterator for Vector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
 
     #[test]
     fn test_instantiate() {
@@ -972,111 +971,246 @@ mod tests {
         v.sort();
         assert_eq!(v, Vector::from_iter(0..=5));
     }
+}
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::{
+        collection::{SizeRange, VecStrategy, VecValueTree},
+        prelude::*,
+        strategy::{statics::MapFn, NewTree, ValueTree},
+        test_runner::TestRunner,
+    };
+
+    // Generate arbitrary `Vector`s of arbitrary `T`s.
+    //
+    // This is very complicated and the same behaviour could be achieved with:
+    //
+    // ```
+    // #[test]
+    // fn f(v in any::<Vec<usize>>().prop_map(Vector::from)) { }
+    // ```
+
+    #[derive(Debug, Clone)]
+    pub struct VectorStrategy<T>(proptest::strategy::statics::Map<VecStrategy<T>, VecToVector>)
+    where
+        T: Strategy;
+
+    impl<T> Strategy for VectorStrategy<T>
+    where
+        T: Strategy,
+    {
+        type Tree = VectorValueTree<T::Tree>;
+
+        type Value = Vector<T::Value>;
+
+        fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
+            self.0.new_tree(runner).map(VectorValueTree)
+        }
+    }
+
+    pub struct VectorValueTree<T>(proptest::strategy::statics::Map<VecValueTree<T>, VecToVector>)
+    where
+        T: ValueTree;
+
+    impl<T> ValueTree for VectorValueTree<T>
+    where
+        T: ValueTree,
+    {
+        type Value = Vector<T::Value>;
+
+        fn current(&self) -> Self::Value {
+            self.0.current().into()
+        }
+
+        fn simplify(&mut self) -> bool {
+            self.0.simplify()
+        }
+
+        fn complicate(&mut self) -> bool {
+            self.0.complicate()
+        }
+    }
+
+    #[derive(Clone)]
+    struct VecToVector;
+
+    impl<T> MapFn<Vec<T>> for VecToVector
+    where
+        T: core::fmt::Debug,
+    {
+        type Output = Vector<T>;
+
+        fn apply(&self, vec: Vec<T>) -> Vector<T> {
+            vec.into()
+        }
+    }
+
+    impl<T> Arbitrary for Vector<T>
+    where
+        T: Arbitrary,
+    {
+        type Parameters = (SizeRange, T::Parameters);
+
+        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+            let (range, a) = args;
+            vector(any_with::<T>(a), range)
+        }
+
+        type Strategy = VectorStrategy<T::Strategy>;
+    }
+
+    pub fn vector<T>(element: T, size: impl Into<SizeRange>) -> VectorStrategy<T>
+    where
+        T: Strategy,
+    {
+        VectorStrategy(proptest::strategy::statics::Map::new(
+            proptest::collection::vec(element, size),
+            VecToVector,
+        ))
+    }
+
+    fn vec_and_vector<T>() -> impl Strategy<Value = (Vec<T>, Vector<T>)>
+    where
+        T: Arbitrary + Clone,
+    {
+        any::<Vec<T>>().prop_map(|v| (v.clone(), v.into()))
+    }
+
+    fn vector_and_index<T>() -> impl Strategy<Value = (Vector<T>, usize)>
+    where
+        T: Arbitrary,
+    {
+        any::<Vector<T>>().prop_flat_map(|v| {
+            let len = v.len();
+            // Hack to satisfy `low < high` requirement in `rand::distributions::uniform::Uniform`
+            if len == 0 {
+                (Just(v), 0..=0)
+            } else {
+                (Just(v), 0..=(len - 1))
+            }
+        })
+    }
+
+    fn vector_and_swap_indices<T>() -> impl Strategy<Value = (Vector<T>, usize, usize)>
+    where
+        T: Arbitrary,
+    {
+        any::<Vector<T>>().prop_flat_map(|v| {
+            let len = v.len();
+            // Hack to satisfy `low < high` requirement in `rand::distributions::uniform::Uniform`
+            if len == 0 {
+                (Just(v), 0..=0, 0..=0)
+            } else {
+                (Just(v), 0..=(len - 1), 0..=(len - 1))
+            }
+        })
+    }
 
     proptest! {
         #[test]
-        fn proptest_back(mut values in any::<Vec<usize>>()) {
+        fn proptest_push_back(vec in any::<Vec<usize>>()) {
             let mut vector = Vector::new();
             prop_assert_eq!(vector.first(), None);
             prop_assert_eq!(vector.last(), None);
-
-            for value in values.clone() {
-                vector.push_back(value);
-                prop_assert_eq!(vector.last(), Some(&value));
+            for el in vec.clone() {
+                vector.push_back(el);
+                prop_assert_eq!(vector.last(), Some(&el));
             }
-            prop_assert_eq!(vector.first(), values.first());
-            prop_assert_eq!(vector.last(), values.last());
+            prop_assert_eq!(vector.first(), vec.first());
+            prop_assert_eq!(vector.last(), vec.last());
+            prop_assert_eq!(vector, vec.into());
+        }
 
-            for i in 1..values.len() {
-                prop_assert_eq!(unsafe {vector.get_unchecked(i)}, &values[i]);
-                prop_assert_eq!(vector.get(i), Some(&values[i]));
-                prop_assert_eq!(unsafe {vector.get_unchecked_mut(i)}, &mut values[i]);
-                prop_assert_eq!(vector.get_mut(i), Some(&mut values[i]));
-                prop_assert_eq!(vector[i], values[i]);
-                prop_assert_eq!(&mut vector[i], &mut values[i]);
+        #[test]
+        fn proptest_push_front(vec in any::<Vec<usize>>()) {
+            let mut vector = Vector::new();
+            prop_assert_eq!(vector.first(), None);
+            prop_assert_eq!(vector.last(), None);
+            for el in vec.clone() {
+                vector.push_front(el);
+                prop_assert_eq!(vector.first(), Some(&el));
             }
+            prop_assert_eq!(vector.first(), vec.last());
+            prop_assert_eq!(vector.last(), vec.first());
+            let vec_rev = vec.into_iter().rev().collect::<Vec<_>>();
+            prop_assert_eq!(vector, vec_rev.into());
+        }
 
-            let capacity = vector.capacity();
-            prop_assert_eq!(vector.len(), values.len());
-            prop_assert!(capacity >= values.len());
-            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
-            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
-
-            while let Some(value) = vector.pop_back() {
-                prop_assert_eq!(value, values.pop().unwrap());
+        #[test]
+        fn proptest_pop_back((mut vec, mut vector) in vec_and_vector::<usize>()) {
+            let l = vector.len();
+            while let Some(el) = vector.pop_back() {
+                prop_assert_eq!(el, vec.pop().unwrap());
             }
             prop_assert_eq!(vector.len(), 0);
-            prop_assert_eq!(vector.capacity(), capacity);
+            if l > 0 {
+                prop_assert!(vector.capacity() > 0);
+            } else {
+                prop_assert_eq!(vector.capacity(), 0);
+            }
             prop_assert_eq!(vector.first(), None);
             prop_assert_eq!(vector.last(), None);
+            prop_assert_eq!(vector, Vector::new());
         }
 
         #[test]
-        fn proptest_front(mut values in any::<Vec<usize>>()) {
-            let mut vector = Vector::new();
-            prop_assert_eq!(vector.first(), None);
-            prop_assert_eq!(vector.last(), None);
-
-            for value in values.clone() {
-                vector.push_front(value);
-                prop_assert_eq!(vector.first(), Some(&value));
+        fn proptest_pop_front((mut vec, mut vector) in vec_and_vector::<usize>()) {
+            let l = vector.len();
+            vec.reverse();
+            while let Some(el) = vector.pop_front() {
+                prop_assert_eq!(el, vec.pop().unwrap());
             }
-            prop_assert_eq!(vector.first(), values.last());
-            prop_assert_eq!(vector.last(), values.first());
-
-            let mut values_rev = values.clone().into_iter().rev().collect::<Vec<_>>();
-
-            for i in 1..values.len() {
-                prop_assert_eq!(unsafe {vector.get_unchecked(i)}, &values_rev[i]);
-                prop_assert_eq!(vector.get(i), Some(&values_rev[i]));
-                prop_assert_eq!(unsafe {vector.get_unchecked_mut(i)}, &mut values_rev[i]);
-                prop_assert_eq!(vector.get_mut(i), Some(&mut values_rev[i]));
-                prop_assert_eq!(vector[i], values_rev[i]);
-                prop_assert_eq!(&mut vector[i], &mut values_rev[i]);
-            }
-
-            prop_assert_eq!(vector.len(), values.len());
-            prop_assert!(vector.capacity() >= values.len());
-            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values_rev);
-            prop_assert_eq!(&vector, &values_rev.clone().into_iter().collect::<Vector<_>>());
-
-            while let Some(value) = vector.pop_front() {
-                prop_assert_eq!(value, values.pop().unwrap());
+            prop_assert_eq!(vector.len(), 0);
+            if l > 0 {
+                prop_assert!(vector.capacity() > 0);
+            } else {
+                prop_assert_eq!(vector.capacity(), 0);
             }
             prop_assert_eq!(vector.first(), None);
             prop_assert_eq!(vector.last(), None);
+            prop_assert_eq!(vector, Vector::new());
         }
 
         #[test]
-        fn proptest_from_iter(values in any::<Vec<usize>>()) {
-            let vector = Vector::from_iter(values.clone());
+        fn proptest_index((mut vec, mut vector) in vec_and_vector::<usize>()) {
+            for i in 0..vec.len() {
+                prop_assert_eq!(unsafe {vector.get_unchecked(i)}, &vec[i]);
+                prop_assert_eq!(vector.get(i), Some(&vec[i]));
+                prop_assert_eq!(unsafe {vector.get_unchecked_mut(i)}, &mut vec[i]);
+                prop_assert_eq!(vector.get_mut(i), Some(&mut vec[i]));
+                prop_assert_eq!(vector[i], vec[i]);
+                prop_assert_eq!(&mut vector[i], &mut vec[i]);
+            }
+        }
 
-            prop_assert_eq!(vector.len(), values.len());
-            prop_assert!(vector.capacity() >= values.len());
+        #[test]
+        fn proptest_len_capacity((vec, vector) in vec_and_vector::<usize>()) {
+            prop_assert_eq!(vector.len(), vec.len());
+            prop_assert!(vector.capacity() >= vec.len());
+        }
+
+        #[test]
+        fn proptest_eq(vector in any::<usize>()) {
             prop_assert_eq!(&vector, &vector);
             prop_assert_eq!(&vector, &vector.clone());
-            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
-            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
         }
 
         #[test]
-        fn proptest_extend(values in any::<Vec<usize>>()) {
+        fn proptest_extend(vec in any::<Vec<usize>>()) {
             let mut vector = Vector::new();
-            vector.extend(values.clone());
-
-            prop_assert_eq!(vector.len(), values.len());
-            prop_assert!(vector.capacity() >= values.len());
-            prop_assert_eq!(&vector, &vector);
-            prop_assert_eq!(&vector, &vector.clone());
-            prop_assert_eq!(&vector.clone().into_iter().collect::<Vec<_>>(), &values);
-            prop_assert_eq!(&vector, &values.clone().into_iter().collect::<Vector<_>>());
+            vector.extend(vec.clone());
+            prop_assert_eq!(vector.len(), vec.len());
+            prop_assert!(vector.capacity() >= vec.len());
+            prop_assert_eq!(vector, vec.into());
         }
 
         #[test]
-        fn proptest_capacity(capacity in 0usize..1000, additional in 0usize..1000) {
-            let mut vector: Vector<usize> = Vector::with_capacity(capacity);
-            prop_assert_eq!(vector.capacity(), capacity);
-            prop_assert_eq!(vector.available(), capacity);
+        fn proptest_capacity(vec in any::<Vec<usize>>(), additional in 0usize..1000) {
+            let mut vector = Vector::with_capacity(vec.len());
+            prop_assert_eq!(vector.capacity(), vec.len());
+            prop_assert_eq!(vector.available(), vec.len());
             prop_assert_eq!(vector.len(), 0);
             if vector.capacity() > 0 {
                 prop_assert!(!vector.full());
@@ -1084,23 +1218,84 @@ mod tests {
                 prop_assert!(vector.full());
             }
 
-            for _ in 0..capacity {
-                vector.push_back(0);
-            }
-            prop_assert_eq!(vector.capacity(), capacity);
+            vector.extend(vec.clone());
+            prop_assert_eq!(vector.len(), vec.len());
+            prop_assert_eq!(vector.capacity(), vec.len());
             prop_assert_eq!(vector.available(), 0);
-            prop_assert_eq!(vector.len(), capacity);
             prop_assert!(vector.full());
 
             vector.reserve(additional);
-            prop_assert_eq!(vector.capacity(), capacity + additional);
+            prop_assert_eq!(vector.capacity(), vec.len() + additional);
             prop_assert_eq!(vector.available(), additional);
-            prop_assert_eq!(vector.len(), capacity);
+            prop_assert_eq!(vector.len(), vec.len());
             if vector.capacity() > 0 && additional > 0 {
                 prop_assert!(!vector.full());
             } else {
                 prop_assert!(vector.full());
             }
+        }
+
+        #[test]
+        fn proptest_clone(vector in any::<Vector<usize>>()) {
+            prop_assert_eq!(vector.clone(), vector);
+        }
+
+        #[test]
+        fn proptest_iter((vec, vector) in vec_and_vector::<usize>()) {
+            prop_assert!(vector.iter().eq(vec.iter()));
+        }
+
+        #[test]
+        fn proptest_into_iter((vec, vector) in vec_and_vector::<usize>()) {
+            prop_assert!(vector.into_iter().eq(vec.into_iter()));
+        }
+
+        #[test]
+        fn proptest_iter_mut((mut vec, mut vector) in vec_and_vector::<usize>()) {
+            prop_assert!(vector.iter_mut().eq(vec.iter_mut()));
+        }
+
+        #[test]
+        fn proptest_to_vec((vec, vector) in vec_and_vector::<usize>()) {
+            prop_assert_eq!(vector.to_vec(), vec);
+        }
+
+        #[test]
+        fn proptest_swap((mut v, i, j) in vector_and_swap_indices::<usize>()) {
+            if v.len() > 0 {
+                let el_i = v[i];
+                let el_j = v[j];
+                v.swap(i, j);
+                prop_assert_eq!(v[j], el_i);
+                prop_assert_eq!(v[i], el_j);
+                v.swap(j, i);
+                prop_assert_eq!(v[i], el_i);
+                prop_assert_eq!(v[j], el_j);
+            }
+        }
+
+        #[test]
+        fn proptest_sort((mut vec, mut vector) in vec_and_vector::<usize>()) {
+            prop_assert!(vector.iter().eq(vec.iter()));
+            vec.sort();
+            vector.sort();
+            prop_assert!(vector.iter().eq(vec.iter()));
+        }
+
+        #[test]
+        fn proptest_rotate_right((mut vector, index) in vector_and_index::<usize>()) {
+            let original = vector.clone();
+            vector.rotate_right(index);
+            vector.rotate_right(vector.len() - index);
+            prop_assert_eq!(&vector, &original);
+        }
+
+        #[test]
+        fn proptest_rotate_left((mut vector, index) in vector_and_index::<usize>()) {
+            let original = vector.clone();
+            vector.rotate_left(index);
+            vector.rotate_left(vector.len() - index);
+            prop_assert_eq!(&vector, &original);
         }
     }
 }
