@@ -1,3 +1,5 @@
+# https://arthursonzogni.com/Diagon/#GraphPlanar
+
 Vector -> CircularBuffer
 Vector -> HashMap
 Vector -> MerkleTree
@@ -8,6 +10,7 @@ CircularBuffer -> Dequeue
 Dequeue -> Queue
 LinkedList -> HashMap
 LinkedList -> LRUCache
+HashMap -> BinaryTree
 HashMap -> HashSet
 HashMap -> LRUCache
 HashMap -> Graph
