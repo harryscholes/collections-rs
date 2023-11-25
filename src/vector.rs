@@ -195,30 +195,48 @@ impl<T> Vector<T> {
         self.get(self.len.saturating_sub(1))
     }
 
-    pub fn rotate_left(&mut self, by: usize) {
-        let by = if self.len == 0 { 0 } else { by % self.len };
-        let old_lhs = self.alloc(by);
-        unsafe {
-            // Copy the first `by` elements into temporary ptr `old_lhs`
-            std::ptr::copy(self.ptr, old_lhs, by);
-            // Move the remaining elements `by` indicies to the left
-            std::ptr::copy(self.ptr.add(by), self.ptr, self.len - by);
-            // Finally copy `old_lhs` after the right-most element
-            std::ptr::copy(old_lhs, self.ptr.add(self.len - by), by);
+    pub fn rotate_left(&mut self, n: usize) {
+        if !self.is_empty() {
+            let n = n % self.len;
+
+            if n > 0 {
+                // Reverse the first portion of the data
+                self.reverse_between(0, n - 1);
+                // Reverse the second portion of the data
+                self.reverse_between(n, self.len - 1);
+                // Reverse the data
+                self.reverse();
+            }
         }
     }
 
-    pub fn rotate_right(&mut self, by: usize) {
-        let by = if self.len == 0 { 0 } else { by % self.len };
-        let old_rhs = self.alloc(by);
-        unsafe {
-            // Copy the last `by` elements into temporary ptr `old_rhs`
-            std::ptr::copy(self.ptr.add(self.len - by), old_rhs, by);
-            // Move the remaining elements `by` indicies to the right
-            std::ptr::copy(self.ptr, self.ptr.add(by), self.len - by);
-            // Finally copy `old_rhs` before the left-most element
-            std::ptr::copy(old_rhs, self.ptr, by);
+    pub fn rotate_right(&mut self, n: usize) {
+        if !self.is_empty() {
+            let n = n % self.len;
+
+            if n > 0 {
+                // Reverse the data
+                self.reverse();
+                // Reverse the first portion of the data
+                self.reverse_between(0, n - 1);
+                // Reverse the second portion of the data
+                self.reverse_between(n, self.len - 1);
+            }
         }
+    }
+
+    pub fn reverse_between(&mut self, start: usize, end: usize) {
+        let mut i = start;
+        let mut j = end;
+        while i < j {
+            self.swap(i, j);
+            i += 1;
+            j -= 1;
+        }
+    }
+
+    pub fn reverse(&mut self) {
+        self.reverse_between(0, self.len - 1);
     }
 
     pub fn to_vec(self) -> Vec<T> {

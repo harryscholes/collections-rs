@@ -29,18 +29,18 @@ impl<T> CircularBuffer<T> {
     /// Time complexity: O(1)
     pub fn push_back(&mut self, el: T) {
         if self.is_full() {
-            self.increment_start();
+            self.increment_start(1);
         }
         self.buf[self.end] = Some(el);
-        self.increment_end();
+        self.increment_end(1);
     }
 
     /// Time complexity: O(1)
     pub fn push_front(&mut self, el: T) {
         if self.is_full() {
-            self.decrement_end();
+            self.decrement_end(1);
         }
-        self.decrement_start();
+        self.decrement_start(1);
         self.buf[self.start] = Some(el);
     }
 
@@ -49,7 +49,7 @@ impl<T> CircularBuffer<T> {
         if self.is_empty() {
             None
         } else {
-            self.decrement_end();
+            self.decrement_end(1);
             self.buf[self.end].take()
         }
     }
@@ -60,7 +60,7 @@ impl<T> CircularBuffer<T> {
             None
         } else {
             let el = self.buf[self.start].take();
-            self.increment_start();
+            self.increment_start(1);
             el
         }
     }
@@ -95,6 +95,56 @@ impl<T> CircularBuffer<T> {
         self.get_mut(index).map(|el| el as *mut T)
     }
 
+    /// Time complexity: O(1) if the buffer is full, O(n) otherwise
+    pub fn rotate_left(&mut self, n: usize) {
+        if self.is_full() {
+            self.increment_start(n);
+            self.increment_end(n);
+        } else {
+            self.ensure_contiguous();
+
+            let n = n % self.len();
+
+            if n > 0 {
+                // Reverse the first portion of the data
+                self.buf.reverse_between(self.start, self.start + n - 1);
+                // Reverse the second portion of the data
+                self.buf.reverse_between(self.start + n, self.end - 1);
+                // Reverse the data
+                self.buf.reverse_between(self.start, self.end - 1);
+            }
+        }
+    }
+
+    /// Time complexity: O(1) if the buffer is full, O(n) otherwise
+    pub fn rotate_right(&mut self, n: usize) {
+        if self.is_full() {
+            self.decrement_start(n);
+            self.decrement_end(n);
+        } else {
+            self.ensure_contiguous();
+
+            let n = n % self.len();
+
+            if n > 0 {
+                // Reverse the data
+                self.buf.reverse_between(self.start, self.end - 1);
+                // Reverse the first portion of the data
+                self.buf.reverse_between(self.start, self.start + n - 1);
+                // Reverse the second portion of the data
+                self.buf.reverse_between(self.start + n, self.end - 1);
+            }
+        }
+    }
+
+    fn ensure_contiguous(&mut self) {
+        if self.start > self.end {
+            self.buf.rotate_left(self.start);
+            self.decrement_end(self.start);
+            self.decrement_start(self.start);
+        }
+    }
+
     /// Time complexity: O(1)
     pub fn first(&self) -> Option<&T> {
         match self.buf.get(self.start).as_ref() {
@@ -105,7 +155,7 @@ impl<T> CircularBuffer<T> {
 
     /// Time complexity: O(1)
     pub fn last(&self) -> Option<&T> {
-        match self.buf.get(self.decrement(self.end)).as_ref() {
+        match self.buf.get(self.decrement(self.end, 1)).as_ref() {
             Some(Some(el)) => Some(el),
             _ => None,
         }
@@ -127,33 +177,33 @@ impl<T> CircularBuffer<T> {
     }
 
     /// Time complexity: O(1)
-    fn decrement(&self, index: usize) -> usize {
-        sub_mod(index, 1, self.buf.len())
+    fn decrement(&self, index: usize, n: usize) -> usize {
+        sub_mod(index, n, self.buf.len())
     }
 
     /// Time complexity: O(1)
-    fn increment(&self, index: usize) -> usize {
-        add_mod(index, 1, self.buf.len())
+    fn increment(&self, index: usize, n: usize) -> usize {
+        add_mod(index, n, self.buf.len())
     }
 
     /// Time complexity: O(1)
-    fn increment_start(&mut self) {
-        self.start = self.increment(self.start)
+    fn increment_start(&mut self, n: usize) {
+        self.start = self.increment(self.start, n)
     }
 
     /// Time complexity: O(1)
-    fn decrement_start(&mut self) {
-        self.start = self.decrement(self.start)
+    fn decrement_start(&mut self, n: usize) {
+        self.start = self.decrement(self.start, n)
     }
 
     /// Time complexity: O(1)
-    fn increment_end(&mut self) {
-        self.end = self.increment(self.end)
+    fn increment_end(&mut self, n: usize) {
+        self.end = self.increment(self.end, n)
     }
 
     /// Time complexity: O(1)
-    fn decrement_end(&mut self) {
-        self.end = self.decrement(self.end)
+    fn decrement_end(&mut self, n: usize) {
+        self.end = self.decrement(self.end, n)
     }
 
     /// Time complexity: O(n)
@@ -1049,5 +1099,178 @@ mod tests {
     fn test_index_mut_index_out_of_bounds() {
         let mut cb = CircularBuffer::from_iter(0..=2);
         cb[3] = 1;
+    }
+
+    #[test]
+    fn test_rotate_left_full() {
+        let mut cb = CircularBuffer::from_iter(0..=3);
+
+        cb.rotate_left(1);
+        assert_eq!(cb.first(), Some(&1));
+        assert_eq!(cb.last(), Some(&0));
+        cb.rotate_left(1);
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_left(2);
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_rotate_left_contiguous_not_full() {
+        let mut cb = CircularBuffer::with_capacity(6);
+        cb.push_back(i32::MAX);
+        cb.pop_front();
+        cb.push_back(0);
+        cb.push_back(1);
+        cb.push_back(2);
+        cb.push_back(3);
+        // Buffer: _, 0, 1, 2, 3, _
+
+        cb.rotate_left(1);
+        // Buffer: _, 1, 2, 3, 0, _
+        assert_eq!(cb.first(), Some(&1));
+        assert_eq!(cb.last(), Some(&0));
+        cb.rotate_left(1);
+        // Buffer: _, 2, 3, 0, 1, _
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_left(2);
+        // Buffer: _, 0, 1, 2, 3, _
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_rotate_left_noncontiguous_not_full() {
+        let mut cb = CircularBuffer::with_capacity(6);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(0);
+        cb.push_back(1);
+        cb.push_back(2);
+        cb.push_back(3);
+        cb.pop_front();
+        cb.pop_front();
+        // Buffer: 2, 3, _, _, 0, 1
+
+        cb.rotate_left(1);
+        // Buffer: 0, 1, 2, 3, _, _
+        // Then
+        // Buffer: 1, 2, 3, 0, _, _
+        assert_eq!(cb.first(), Some(&1));
+        assert_eq!(cb.last(), Some(&0));
+        cb.rotate_left(1);
+        // Buffer: 2, 3, 0, 1, _, _
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_left(2);
+        // Buffer: 0, 1, 2, 3, _, _
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_rotate_right_full() {
+        let mut cb = CircularBuffer::from_iter(0..=3);
+
+        cb.rotate_right(1);
+        assert_eq!(cb.first(), Some(&3));
+        assert_eq!(cb.last(), Some(&2));
+        cb.rotate_right(1);
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_right(2);
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_rotate_right_contiguous_not_full() {
+        let mut cb = CircularBuffer::with_capacity(6);
+        cb.push_back(i32::MAX);
+        cb.push_back(0);
+        cb.push_back(1);
+        cb.push_back(2);
+        cb.push_back(3);
+
+        cb.pop_front();
+        // Buffer: _, 0, 1, 2, 3, _
+
+        cb.rotate_right(1);
+        // Buffer: _, 3, 0, 1, 2, _
+        assert_eq!(cb.first(), Some(&3));
+        assert_eq!(cb.last(), Some(&2));
+        cb.rotate_right(1);
+        // Buffer: _, 2, 3, 0, 1, _
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_right(2);
+        // Buffer: _, 0, 1, 2, 3, _
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_rotate_right_noncontiguous_not_full() {
+        let mut cb = CircularBuffer::with_capacity(6);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(0);
+        cb.push_back(1);
+        cb.push_back(2);
+        cb.push_back(3);
+        cb.pop_front();
+        cb.pop_front();
+        // Buffer: 2, 3, _, _, 0, 1
+
+        cb.rotate_right(1);
+        // Buffer: 0, 1, 2, 3, _, _
+        // Then
+        // Buffer: 3, 0, 1, 2, _, _
+        assert_eq!(cb.first(), Some(&3));
+        assert_eq!(cb.last(), Some(&2));
+        cb.rotate_right(1);
+        // Buffer: 2, 3, 0, 1, _, _
+        assert_eq!(cb.first(), Some(&2));
+        assert_eq!(cb.last(), Some(&1));
+        cb.rotate_right(2);
+        // Buffer: 0, 1, 2, 3, _, _
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+    }
+
+    #[test]
+    fn test_ensure_contiguous() {
+        let mut cb = CircularBuffer::with_capacity(6);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(i32::MAX);
+        cb.push_back(0);
+        cb.push_back(1);
+        cb.push_back(2);
+        cb.push_back(3);
+        cb.pop_front();
+        cb.pop_front();
+        // Buffer: 2, 3, _, _, 0, 1
+
+        assert_eq!(cb.start, 4);
+        assert_eq!(cb.end, 2);
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+
+        cb.ensure_contiguous();
+
+        assert_eq!(cb.start, 0);
+        assert_eq!(cb.end, 4);
+        assert_eq!(cb.first(), Some(&0));
+        assert_eq!(cb.last(), Some(&3));
+
+        assert!(cb.into_iter().eq(0..=3));
     }
 }
