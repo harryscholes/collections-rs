@@ -49,8 +49,24 @@ impl<T> Dequeue<T> {
         self.0.first()
     }
 
+    /// Time complexity: O(n)
     pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
+    }
+
+    /// Time complexity: O(1)
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Time complexity: O(1)
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Time complexity: O(1)
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
     }
 }
 

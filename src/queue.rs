@@ -27,6 +27,21 @@ impl<T> Queue<T> {
     pub fn peek(&self) -> Option<&T> {
         self.0.peek_front()
     }
+
+    /// Time complexity: O(1)
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Time complexity: O(1)
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Time complexity: O(1)
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
 }
 
 impl<T, const N: usize> From<[T; N]> for Queue<T> {

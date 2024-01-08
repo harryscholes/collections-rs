@@ -16,3 +16,7 @@ HashMap -> LRUCache
 HashMap -> Graph
 HashMap -> SparseVector
 MaxHeap -> PriorityQueue
+Queue -> BuffererdChannel
+Queue -> UnbuffererdChannel
+Queue -> OneshotChannel
+Queue -> AsyncBufferedChannel
